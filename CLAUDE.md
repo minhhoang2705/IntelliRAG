@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-IntelliRAG is a RAG (Retrieval-Augmented Generation) system integrating Gemini AI with Weaviate vector database.
+IntelliRAG is a production-ready RAG (Retrieval-Augmented Generation) system with full MLOps pipeline, integrating local GPU inference with cloud-native Kubernetes deployment.
 
 **Project**: Production-Ready RAG System with MLOps Pipeline  
 **Methodology**: Test-Driven Development (TDD) - **STRICTLY ENFORCED**  
@@ -19,10 +19,14 @@ Build an enterprise RAG system that:
 - Serves LLM inference via local GPU (RTX 4070Ti) + KServe
 - Deploys to GKE with full observability stack
 - Maintains production-grade quality standards
+- Implements complete CI/CD with automated testing (>80% coverage)
+- Provides real-time monitoring, tracing, and logging
 
 ---
 
 ## 🛠️ Tech Stack & Documentation
+
+### **Package Management**
 - Python 3.11, 3.12
 - Package Manager: `uv`
 
@@ -32,6 +36,7 @@ Build an enterprise RAG system that:
   - Dependency injection via `Depends()`
   - Background tasks with `BackgroundTasks`
   - Router-level dependencies with `APIRouter`
+  - Middleware for tracing, logging, metrics
   
 - **Pydantic** (`/pydantic/pydantic` - Trust: 9.6)
   - `BaseModel` for data validation
@@ -39,38 +44,99 @@ Build an enterprise RAG system that:
   - `Field()` for strict mode and constraints
   - Nested model validation
 
-### **Vector & Embeddings**
-- **Qdrant Client** (`/qdrant/qdrant-client` - Trust: 9.8)
+### **API Gateway & Load Balancing**
+- **NGINX** 
+  - API Gateway with authentication
+  - Rate limiting
+  - Request routing
+  - SSL/TLS termination
+  - Kubernetes Ingress Controller
+
+### **Vector Database & Embeddings**
+- **Qdrant** (`/qdrant/qdrant-client` - Trust: 9.8)
   - Async operations supported
   - Collection management
   - Vector search with filters
+  - Persistence layer for embeddings
   
 - **Sentence Transformers** (`/ukplab/sentence-transformers` - Trust: 7.8)
   - Pre-trained embedding models
   - Batch encoding support
   - `all-MiniLM-L6-v2` (384 dim, recommended)
 
+### **Document Processing**
+- **Docling**: Multi-format parsing (PDF, DOCX, PPTX, XLSX, HTML, images)
+- **LangChain/LangGraph**: Document chunking and text splitting
+- **Chunking Strategy**:
+  - Semantic chunking for text
+  - Table-aware chunking for structured data
+  - Image extraction and description
+
+### **LLM & Model Serving**
+- **KServe**: Model serving on Kubernetes
+  - Autoscaling (scale to zero)
+  - Model versioning
+  - Canary deployments
+- **Ollama** (Local GPU): Qwen2.5-7B + MiniCPM-V
+- **Tailscale VPN**: Secure tunnel (GKE ↔ Local GPU)
+- **httpx**: Async HTTP client for LLM calls
+
+### **Agentic RAG & Query Routing**
+- **LangGraph** (`/langchain-ai/langgraph`)
+  - Query analysis and classification
+  - Conditional RAG routing (retrieval vs direct answer)
+  - Multi-step reasoning workflows
+  - State management for complex queries
+  - Graph-based agent orchestration
+
+### **MLOps & Versioning**
+- **MLFlow**: Model registry and versioning
+  - Model tracking
+  - Experiment management
+  - Model packaging for deployment
+- **DVC**: Data version control
+  - Dataset versioning
+  - Pipeline tracking
+  - Remote storage (S3/GCS)
+
 ### **Testing**
 - **Pytest** (`/pytest-dev/pytest` - Trust: 9.5)
   - `pytest-asyncio` for async tests
-  - `pytest-cov` for coverage
+  - `pytest-cov` for coverage (>80% enforced)
   - `pytest-mock` for mocking
   - Fixtures with `@pytest.fixture`
-
-### **LLM & Processing**
-- **Ollama** (Local serving): Qwen2.5-7B + MiniCPM-V
-- **httpx**: Async HTTP client for LLM calls
-- **Docling**: Document processing, parsing diverse formats (PDF, DOCX, PPTX, XLSX, HTML, WAV, MP3, VTT, images (PNG, TIFF, JPEG, ...))
+- **RAGAS**: RAG evaluation metrics
+  - Context relevance
+  - Answer faithfulness
+  - Answer relevance
 
 ### **Infrastructure**
 - **Kubernetes**: GKE Autopilot
-- **Helm**: Deployment charts
-- **Terraform**: IaC for GKE
-- **Tailscale**: Secure VPN (GKE ↔ Local GPU)
-- **Prometheus + Grafana**: Metrics
-- **Loki**: Logging
-- **Jaeger**: Tracing
-- **MLFlow + DVC**: Model/data versioning
+- **Helm**: Application deployment
+  - Helmfile for multi-chart management
+- **Terraform**: IaC for GKE provisioning
+- **HPA**: Horizontal Pod Autoscaler for FastAPI services
+
+### **Observability Stack**
+- **Prometheus**: Metrics collection
+  - Service metrics
+  - Custom application metrics
+  - Resource utilization
+- **Grafana**: Visualization dashboards
+  - System monitoring
+  - Application metrics
+  - Alerting
+- **Jaeger/Tempo**: Distributed tracing
+  - Request flow tracking
+  - Performance bottleneck identification
+- **Loki/ELK**: Centralized logging
+  - Application logs
+  - Error tracking
+  - Audit trails
+- **Evidently**: Data drift monitoring
+  - Input distribution shifts
+  - Model performance degradation
+  - Feature drift detection
 
 ---
 
@@ -90,27 +156,27 @@ RED (Fail) → GREEN (Pass) → REFACTOR (Clean)
 
 ```bash
 # 1. Create test file FIRST
-touch tests/unit/test_.py
+touch tests/unit/test_<component>.py
 
 # 2. Write test that WILL FAIL
-vim tests/unit/test_.py
+vim tests/unit/test_<component>.py
 
 # 3. Run test - MUST see failure
-pytest tests/unit/test_.py:::: -v
+pytest tests/unit/test_<component>.py::<TestClass>::<test_method> -v
 # Expected: FAILED ❌
 
 # 4. Implement minimal code
-vim app/services/.py
+vim app/services/<component>.py
 
 # 5. Run test - MUST pass
-pytest tests/unit/test_.py:::: -v
+pytest tests/unit/test_<component>.py::<TestClass>::<test_method> -v
 # Expected: PASSED ✅
 
 # 6. Refactor 
 # Improve code while keeping tests green
 
 # 7. Check coverage
-pytest tests/unit/test_.py --cov=app.services. --cov-report=term-missing
+pytest tests/unit/test_<component>.py --cov=app.services.<component> --cov-report=term-missing
 # Target: >80%
 ```
 
@@ -143,26 +209,46 @@ pytest tests/unit/test_.py --cov=app.services. --cov-report=term-missing
 rag-system/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                    # FastAPI app
+│   ├── main.py                    # FastAPI orchestrator
+│   ├── config.py                  # Configuration management
 │   ├── api/
 │   │   ├── __init__.py
-│   │   ├── upload.py              # POST /upload
-│   │   ├── embed.py               # POST /embed
-│   │   └── query.py               # POST /query (RAG)
+│   │   ├── v1/
+│   │   │   ├── __init__.py
+│   │   │   ├── upload.py          # POST /api/v1/upload
+│   │   │   ├── ingest.py          # POST /api/v1/ingest (trigger pipeline)
+│   │   │   └── query.py           # POST /api/v1/query (RAG endpoint)
+│   │   └── middleware/
+│   │       ├── __init__.py
+│   │       ├── tracing.py         # Jaeger integration
+│   │       ├── logging.py         # Structured logging
+│   │       └── metrics.py         # Prometheus metrics
 │   ├── services/
 │   │   ├── __init__.py
+│   │   ├── orchestrator.py        # Main orchestration logic
+│   │   ├── query_router/
+│   │   │   ├── __init__.py
+│   │   │   ├── langgraph_agent.py # LangGraph query classifier
+│   │   │   ├── prompts.py         # Classification prompts
+│   │   │   └── graph.py           # State graph definition
 │   │   ├── preprocessing/
 │   │   │   ├── __init__.py
 │   │   │   ├── base.py            # BaseHandler abstract
-│   │   │   ├── pdf.py             # PDFHandler
+│   │   │   ├── pdf.py             # PDFHandler (Docling)
 │   │   │   ├── docx.py            # DocxHandler
 │   │   │   ├── image.py           # ImageHandler (OCR + Vision)
 │   │   │   ├── csv_handler.py     # CSVHandler
-│   │   │   └── text.py            # TextHandler
-│   │   ├── llm_client.py          # OllamaClient (async)
+│   │   │   ├── text.py            # TextHandler
+│   │   │   ├── chunker.py         # Document chunking
+│   │   │   └── pipeline.py        # Parse → Chunk → Embed pipeline
 │   │   ├── embedding.py           # EmbeddingService
 │   │   ├── vectordb.py            # QdrantService
-│   │   └── rag_pipeline.py        # RAGPipeline
+│   │   ├── llm_client.py          # KServe/Ollama client (async)
+│   │   ├── rag_pipeline.py        # Retrieve → Generate pipeline
+│   │   └── monitoring/
+│   │       ├── __init__.py
+│   │       ├── drift_detector.py  # Evidently integration
+│   │       └── metrics.py         # Custom metrics
 │   └── models/
 │       ├── __init__.py
 │       └── schemas.py             # Pydantic models
@@ -175,12 +261,17 @@ rag-system/
 │   │   ├── test_preprocessing_image.py
 │   │   ├── test_preprocessing_csv.py
 │   │   ├── test_preprocessing_text.py
+│   │   ├── test_chunker.py
 │   │   ├── test_embedding.py
+│   │   ├── test_query_router.py    # LangGraph classification tests
 │   │   ├── test_llm_client.py
 │   │   ├── test_vectordb.py
-│   │   └── test_rag_pipeline.py
+│   │   ├── test_rag_pipeline.py
+│   │   ├── test_orchestrator.py
+│   │   └── test_drift_detector.py
 │   ├── integration/
 │   │   ├── test_api_endpoints.py
+│   │   ├── test_ingestion_flow.py
 │   │   └── test_rag_flow.py
 │   ├── evaluation/
 │   │   └── test_ragas.py          # RAGAS metrics
@@ -191,18 +282,149 @@ rag-system/
 │       ├── sample.txt
 │       └── sample.jpg
 ├── kubernetes/
-│   └── (Helm charts, manifests)
+│   ├── helm/
+│   │   ├── intellirag/           # Main application chart
+│   │   │   ├── Chart.yaml
+│   │   │   ├── values.yaml
+│   │   │   └── templates/
+│   │   │       ├── deployment.yaml
+│   │   │       ├── service.yaml
+│   │   │       ├── hpa.yaml
+│   │   │       ├── ingress.yaml  # NGINX ingress
+│   │   │       └── configmap.yaml
+│   │   ├── kserve/               # Model serving
+│   │   │   └── inferenceservice.yaml
+│   │   ├── qdrant/               # Vector DB
+│   │   ├── monitoring/           # Prometheus, Grafana, Jaeger, Loki
+│   │   └── helmfile.yaml         # Manage all charts
+│   └── manifests/
+│       └── namespace.yaml
 ├── terraform/
-│   └── (GKE infrastructure)
+│   ├── main.tf                   # GKE cluster
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── modules/
+│       ├── gke/
+│       ├── networking/
+│       └── iam/
+├── observability/
+│   ├── prometheus/
+│   │   └── rules.yaml            # Alert rules
+│   ├── grafana/
+│   │   └── dashboards/
+│   │       ├── system.json
+│   │       ├── application.json
+│   │       └── rag-metrics.json
+│   └── evidently/
+│       └── reports/
+├── mlops/
+│   ├── mlflow/
+│   │   └── models/               # Model artifacts
+│   └── dvc/
+│       ├── .dvc/
+│       └── data.dvc              # Data versioning
 ├── docs/
-│   └── (Project documentation)
+│   ├── architecture.md
+│   ├── api-spec.md
+│   ├── deployment.md
+│   └── monitoring.md
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml             # CI/CD pipeline
-├── pytest.ini                     # Pytest config
+│       └── ci-cd.yml             # Test → Build → Deploy
+├── .env.example
+├── pytest.ini                    # Pytest config
+├── pyproject.toml                # uv/pip config
 ├── requirements.txt
 ├── requirements-dev.txt
-└── CLAUDE.md                      # This file
+├── Dockerfile
+└── CLAUDE.md                     # This file
+```
+
+---
+
+## 🔄 System Flows
+
+### **Flow 1: Document Ingestion**
+
+```
+User → UI → NGINX → Orchestrator
+                        ↓
+                  Preprocessing Pipeline
+                    ├─> Parse (Docling)
+                    ├─> Chunk (LangChain)
+                    └─> Embed (SentenceTransformers)
+                        ↓
+                    Qdrant (Store)
+                        ↓
+                    DVC (Version)
+```
+
+### **Flow 2: Query/RAG (Conditional Routing)**
+
+```
+User → UI → NGINX → Orchestrator
+                        ↓
+                   LangGraph Agent
+                   (Query Analysis)
+                        ↓
+                   ┌────┴────┐
+                   │         │
+              Need RAG?   No (Direct)
+                   │         │
+                  Yes        └──────────┐
+                   │                    │
+                   ↓                    │
+              Embed Query               │
+                   ↓                    │
+              Qdrant (Retrieve)         │
+                   ↓                    │
+              Format Prompt             │
+              (Query + Context)         │
+                   │                    │
+                   └─────────┬──────────┘
+                             ↓
+                    KServe → GPU (Qwen2.5)
+                             ↓
+                    Generate Answer
+                             ↓
+                    User ← UI ← NGINX
+
+Decision Logic:
+- Factual questions → Direct answer (no RAG)
+- Domain-specific → RAG retrieval
+- Conversational → Direct answer
+- Document queries → RAG retrieval
+```
+
+### **Flow 3: CI/CD**
+
+```
+Developer → Git Push → GitHub Actions
+                           ↓
+                      Test (Pytest)
+                      Coverage > 80%?
+                           ↓ (auto)
+                      Build (Docker)
+                           ↓
+                      Push to Registry
+                           ↓ (manual trigger)
+                      Deploy to GKE (Helm)
+                           ↓
+                      ├─> Update FastAPI
+                      ├─> Update KServe
+                      └─> Update NGINX
+```
+
+### **Flow 4: Observability (Continuous)**
+
+```
+Every Request:
+    ├─> Jaeger (Trace ID)
+    ├─> Prometheus (Metrics)
+    ├─> Loki (Logs)
+    └─> Evidently (Data Drift)
+         ↓
+    Grafana (Visualization)
 ```
 
 ---
@@ -231,21 +453,45 @@ rag-system/
 ### General
 - Update existing docs (Markdown files) in `./docs` directory before any code refactoring
 - Add new docs (Markdown files) to `./docs` directory after new feature implementation (do not create duplicated docs)
-- use `context7` mcp tools for docs of plugins/packages
-- use `senera` mcp tools for semantic retrieval and editing capabilities
-- whenever you want to see the whole code base, use this command: `repomix` and read the output summary file.
+- Use `context7` mcp tools for docs of plugins/packages
+- Use `senera` mcp tools for semantic retrieval and editing capabilities
+- Whenever you want to see the whole code base, use this command: `repomix` and read the output summary file
 
 ### Code Quality Guidelines
 - Don't be too harsh on code linting and formatting
 - Prioritize functionality and readability over strict style enforcement
 - Use reasonable code quality standards that enhance developer productivity
 - Allow for minor style variations when they improve code clarity
+- Add proper type hints for better IDE support
+- Document complex logic with clear comments
 
 ### Pre-commit/Push Rules
 - Keep commits focused on the actual code changes
 - **DO NOT** commit and push any confidential information (such as dotenv files, API keys, database credentials, etc.) to git repository!
 - NEVER automatically add AI attribution signatures like:
-  "🤖 Generated with [Claude Code]"
-  "Co-Authored-By: Claude noreply@anthropic.com"
-  Any AI tool attribution or signature
-- Create clean, professional commit messages without AI references. Use conventional commit format.
+  - "🤖 Generated with [Claude Code]"
+  - "Co-Authored-By: Claude noreply@anthropic.com"
+  - Any AI tool attribution or signature
+- Create clean, professional commit messages without AI references
+- Use conventional commit format: `<type>(<scope>): <description>`
+  - Examples: `feat(api): add query endpoint`, `fix(vectordb): handle connection timeout`
+
+### Observability Integration
+- Add structured logging to all services
+- Instrument critical paths with tracing spans
+- Expose Prometheus metrics for monitoring
+- Log errors with full context and stack traces
+- Include correlation IDs in all logs
+
+---
+
+## 💡 Pro Tips
+
+1. **Always trace requests end-to-end** - Use Jaeger to understand bottlenecks
+2. **Monitor data drift early** - Set up alerts in Evidently before production
+3. **Test with production-like data** - Use DVC to version realistic datasets
+4. **Keep models versioned** - Never deploy unversioned models
+5. **Automate everything** - If you do it twice, automate it
+6. **Think about scale-to-zero** - Optimize cold start times for KServe
+7. **Watch your costs** - Monitor GKE and GPU utilization closely
+8. **Document as you go** - Update docs when changing architecture
