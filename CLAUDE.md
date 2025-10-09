@@ -22,6 +22,10 @@ Build an enterprise RAG system that:
 - Implements complete CI/CD with automated testing (>80% coverage)
 - Provides real-time monitoring, tracing, and logging
 
+## High-level Architecture
+
+The high-level architecture can be seen at this path `./images/high_level_architecture_v2.jpg`
+
 ---
 
 ## 🛠️ Tech Stack & Documentation
@@ -65,7 +69,7 @@ Build an enterprise RAG system that:
   - `all-MiniLM-L6-v2` (384 dim, recommended)
 
 ### **Document Processing**
-- **Docling**: Multi-format parsing (PDF, DOCX, PPTX, XLSX, HTML, images)
+- **Docling**: Multi-format parsing (PDF, images)
 - **LangChain/LangGraph**: Document chunking and text splitting
 - **Chunking Strategy**:
   - Semantic chunking for text
@@ -464,6 +468,16 @@ Every Request:
 - Allow for minor style variations when they improve code clarity
 - Add proper type hints for better IDE support
 - Document complex logic with clear comments
+- Type hints required for all functions and methods
+- Classes: PascalCase with descriptive name
+- Functions/Variables: snake_case
+- Constants: UPPERCASE_WITH_UNDERSCORES
+- Import organization with isort:
+  1. Standard library imports
+  2. Third-party imports
+  3. Local application imports
+- Error handling: Use  specific exception types
+- Logging: Use the logging module with appropriate levels
 
 ### Pre-commit/Push Rules
 - Keep commits focused on the actual code changes

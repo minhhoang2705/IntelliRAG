@@ -9,6 +9,7 @@ def test_document_chunker_exists():
 
     assert DocumentChunker is not None
 
+
 def test_document_chunker_can_be_instantiated():
     """Test that DocumentChunker can be instantiated."""
     from app.services.preprocessing.chunker import DocumentChunker
@@ -60,7 +61,8 @@ def test_document_chunker_chunks_simple_text():
     assert all(isinstance(chunk, dict) for chunk in chunks)
     assert all('text' in chunk for chunk in chunks)
     assert all('metadata' in chunk for chunk in chunks)
-    assert all(len(chunk['text']) <= 60 for chunk in chunks)  # Allow some buffer
+    # Allow some buffer
+    assert all(len(chunk['text']) <= 60 for chunk in chunks)
 
 
 def test_document_chunker_preserves_metadata():
@@ -102,9 +104,104 @@ def test_document_chunker_handles_small_text():
 
     chunker = DocumentChunker(chunk_size=1000, chunk_overlap=100)
     small_text = "This is a small text."
-    
+
     chunks = chunker.chunk_text(small_text)
 
     assert len(chunks) == 1
     assert chunks[0]['text'] == small_text
     assert chunks[0]['metadata']['chunk_index'] == 0
+
+
+def test_document_chunker_accepts_chunker_type_parameter():
+    """Test that DocumentChunker accepts chunker_type parameter."""
+    from app.services.preprocessing.chunker import DocumentChunker
+
+    # Test langchain type (default)
+    chunker = DocumentChunker(chunker_type="langchain")
+    assert chunker.chunker_type == "langchain"
+
+
+def test_document_chunker_accepts_model_id_parameter():
+    """Test that DocumentChunker accepts model_id for tokenizer configuration."""
+    from app.services.preprocessing.chunker import DocumentChunker
+
+    model_id = "sentence-transformers/all-MiniLM-L6-v2"
+    chunker = DocumentChunker(model_id=model_id)
+    assert chunker.model_id == model_id
+
+
+def test_document_chunker_hybrid_type_can_be_instantiated():
+    """Test that hybrid chunker can be instantiated without errors."""
+    from app.services.preprocessing.chunker import DocumentChunker
+
+    # Should not raise any errors even if Docling deps are missing (fallback to langchain)
+    chunker = DocumentChunker(chunker_type="hybrid")
+    assert chunker is not None
+    assert chunker.chunker_type == "hybrid"
+
+
+def test_document_chunker_hybrid_type_chunks_text():
+    """Test that hybrid chunker successfully chunks text."""
+    from app.services.preprocessing.chunker import DocumentChunker
+
+    chunker = DocumentChunker(chunker_type="hybrid",
+                              chunk_size=100, chunk_overlap=20)
+    text = "This is a test document. " * 10  # ~250 characters
+
+    chunks = chunker.chunk_text(text)
+
+    # Should successfully chunk text
+    assert isinstance(chunks, list)
+    assert len(chunks) > 0
+    assert all('text' in chunk for chunk in chunks)
+    assert all('metadata' in chunk for chunk in chunks)
+
+
+def test_document_chunker_hybrid_uses_token_based_chunking():
+    """Test that hybrid chunker uses token-based chunking from Docling HybridChunker."""
+    from app.services.preprocessing.chunker import DocumentChunker
+
+    chunker = DocumentChunker(chunker_type="hybrid",
+                              chunk_size=50, chunk_overlap=10)
+
+    # Verify the chunker has a tokenizer (unique to HybridChunker)
+    assert hasattr(
+        chunker, 'tokenizer'), "Hybrid chunker should have a tokenizer attribute"
+    assert chunker.tokenizer is not None, "Tokenizer should be initialized for hybrid chunker"
+
+
+def test_document_chunker_hybrid_uses_docling_hybrid_chunker():
+    """Test that hybrid chunker actually uses Docling's HybridChunker for splitting."""
+    from app.services.preprocessing.chunker import DocumentChunker
+
+    chunker = DocumentChunker(chunker_type="hybrid",
+                              chunk_size=50, chunk_overlap=10)
+
+    # Verify the splitter is a Docling HybridChunker, not LangChain
+    assert hasattr(chunker, 'splitter'), "Chunker should have a splitter"
+
+    # Check the splitter type - should be HybridChunker from Docling
+    splitter_class_name = chunker.splitter.__class__.__name__
+    assert splitter_class_name == "HybridChunker", f"Expected HybridChunker but got {splitter_class_name}"
+def test_hybrid_chunker_length_function_uses_tokenizer():
+    """Test that HybridChunker's length_function uses tokenizer to count tokens."""
+    from app.services.preprocessing.chunker import DocumentChunker
+
+    # Create hybrid chunker
+    chunker = DocumentChunker(chunker_type="hybrid", chunk_size=50, chunk_overlap=10)
+
+    # Test text
+    test_text = "This is a test string for tokenization."
+
+    # Access the length function from the splitter
+    length_func = chunker.splitter._length_function
+
+    # Calculate length using the chunker's length function
+    calculated_length = length_func(test_text)
+
+    # Calculate expected token count using tokenizer
+    expected_token_count = len(chunker.tokenizer.encode(test_text))
+
+    # The length function MUST return token count, not character count
+    assert calculated_length == expected_token_count, \
+        f"Length function returned {calculated_length}, but tokenizer gives {expected_token_count} tokens"

@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "chardet>=5.2.0",
     "docling>=2.55.1",
+    "docling-core>=2.48.4",
     "fastapi>=0.118.0",
     "httpx>=0.28.1",
     "langchain>=0.3.27",
@@ -22,6 +23,8 @@ dependencies = [
     "python-multipart>=0.0.20",
     "qdrant-client>=1.15.1",
     "sentence-transformers>=5.1.1",
+    "tdd-guard-pytest>=0.1.2",
+    "transformers>=4.57.0",
     "uvicorn>=0.37.0",
 ]
 
