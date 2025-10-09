@@ -1,0 +1,9 @@
+This is a sample text document for testing the IntelliRAG system.
+
+The document contains multiple paragraphs to test text extraction and chunking capabilities.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+This paragraph contains technical information about the system. The RAG (Retrieval-Augmented Generation) system processes documents by first extracting text, then chunking it into smaller segments, generating embeddings for each chunk, and finally storing these embeddings in a vector database for efficient retrieval.
+
+Final paragraph to ensure we have enough content for meaningful chunking tests.
