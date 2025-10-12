@@ -5,8 +5,16 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 
+class SecurityError(Exception):
+    """Raised when security validation fails."""
+    pass
+
+
 class BaseHandler(ABC):
     """Abstract base class for all document handlers."""
+
+    # Security constants
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB default
 
     @abstractmethod
     def validate(self, file_path: Path) -> bool:
@@ -47,6 +55,36 @@ class BaseHandler(ABC):
             Extracted text as a string
         """
         pass
+
+    def secure_validate(self, file_path: Path) -> bool:
+        """Perform security validations on file."""
+        # Prevent access to sensitive system files
+        resolved_path = file_path.resolve()
+        path_str = str(resolved_path)
+
+        # Block access to common sensitive directories
+        sensitive_paths = ['/etc/', '/sys/', '/proc/', '/root/']
+        for sensitive in sensitive_paths:
+            if path_str.startswith(sensitive):
+                raise SecurityError("Path traversal detected")
+
+        # Check file size
+        file_size = file_path.stat().st_size
+        if file_size > self.MAX_FILE_SIZE:
+            raise SecurityError(f"File size exceeds {self.MAX_FILE_SIZE} bytes")
+
+        # Validate magic bytes if EXPECTED_MIME_TYPES is defined
+        if hasattr(self, 'EXPECTED_MIME_TYPES'):
+            import magic
+            try:
+                mime_type = magic.from_file(str(file_path), mime=True)
+                if mime_type not in self.EXPECTED_MIME_TYPES:
+                    raise SecurityError(f"Invalid file type: {mime_type}")
+            except Exception as e:
+                # If magic fails, raise security error
+                raise SecurityError(f"Failed to validate file type: {str(e)}")
+
+        return True
 
     def chunk_text(
         self,

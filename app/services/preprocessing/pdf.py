@@ -13,6 +13,7 @@ class PDFHandler(BaseHandler):
     """Handler for processing PDF files using Docling."""
 
     SUPPORTED_EXTENSIONS = {'.pdf'}
+    EXPECTED_MIME_TYPES = {'application/pdf'}
 
     def __init__(self):
         """Initialize the PDF handler with Docling converter."""

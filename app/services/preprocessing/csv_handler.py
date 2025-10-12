@@ -12,6 +12,7 @@ class CSVHandler(BaseHandler):
     """Handler for processing CSV files."""
 
     SUPPORTED_EXTENSIONS = {'.csv'}
+    EXPECTED_MIME_TYPES = {'text/csv', 'text/plain', 'application/csv'}
 
     def validate(self, file_path: Path) -> bool:
         """

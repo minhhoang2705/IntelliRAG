@@ -462,6 +462,9 @@ Every Request:
 - Whenever you want to see the whole code base, use this command: `repomix` and read the output summary file
 
 ### Code Quality Guidelines
+- Before you start, delegate to `planner-researcher` agent to create an implemnetation plan with TODO tasks in `./docs/todos` directory
+- Write clean, readable, maintainable code
+- Handle edge cases and error scenarios
 - Don't be too harsh on code linting and formatting
 - Prioritize functionality and readability over strict style enforcement
 - Use reasonable code quality standards that enhance developer productivity
@@ -478,6 +481,11 @@ Every Request:
   3. Local application imports
 - Error handling: Use  specific exception types
 - Logging: Use the logging module with appropriate levels
+- Delegate to `senior-code-reviewer` agent to review code
+- Following code standards and conventions
+- Write self-documenting code
+- Add meaningful comments for complex logic
+- Optimize for performance and maintainability
 
 ### Pre-commit/Push Rules
 - Keep commits focused on the actual code changes

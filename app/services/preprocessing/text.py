@@ -1,16 +1,20 @@
 """Text file handler for document preprocessing."""
 
+import logging
 from pathlib import Path
 from typing import Dict, Any
 import chardet
 
 from .base import BaseHandler
 
+logger = logging.getLogger(__name__)
+
 
 class TextHandler(BaseHandler):
     """Handler for processing plain text files."""
 
     SUPPORTED_EXTENSIONS = {'.txt'}
+    EXPECTED_MIME_TYPES = {'text/plain', 'text/markdown', 'application/octet-stream'}
 
     def validate(self, file_path: Path) -> bool:
         """
