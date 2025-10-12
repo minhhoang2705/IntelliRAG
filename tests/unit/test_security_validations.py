@@ -86,3 +86,19 @@ class TestMagicBytesValidation:
         # Should raise SecurityError if magic byte validation is enabled
         with pytest.raises(SecurityError, match="Invalid file type"):
             handler.secure_validate(fake_pdf)
+
+
+
+class TestSecurityIntegration:
+    """Integration tests - verify security is enforced in process() methods."""
+
+    def test_handler_process_rejects_oversized_files(self, tmp_path):
+        """Test that handler.process() automatically enforces file size limits."""
+        oversized_file = tmp_path / "oversized.txt"
+        with open(oversized_file, 'wb') as f:
+            f.write(b'x' * (51 * 1024 * 1024))  # 51MB
+
+        handler = TextHandler()
+
+        with pytest.raises(SecurityError, match="File size exceeds"):
+            handler.process(oversized_file)

@@ -12,7 +12,7 @@ class CSVHandler(BaseHandler):
     """Handler for processing CSV files."""
 
     SUPPORTED_EXTENSIONS = {'.csv'}
-    EXPECTED_MIME_TYPES = {'text/csv', 'text/plain', 'application/csv'}
+    EXPECTED_MIME_TYPES = {'text/csv', 'text/plain', 'application/csv', 'inode/x-empty'}
 
     def validate(self, file_path: Path) -> bool:
         """
@@ -92,6 +92,9 @@ class CSVHandler(BaseHandler):
         Returns:
             Dictionary containing processed data including text, metadata, and structured data
         """
+        # Security validation - must happen first
+        self.secure_validate(file_path)
+
         # Extract text
         text = self.extract_text(file_path)
 

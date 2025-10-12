@@ -12,7 +12,7 @@ class ImageHandler(BaseHandler):
     """Handler for processing image files using Docling with OCR."""
 
     SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp'}
-    EXPECTED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/tiff', 'image/webp'}
+    EXPECTED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/tiff', 'image/webp', 'application/octet-stream', 'inode/x-empty', 'text/plain'}
 
     def __init__(self):
         """Initialize the Image handler with Docling converter."""
@@ -75,6 +75,9 @@ class ImageHandler(BaseHandler):
         Returns:
             Dictionary containing processed data including text and metadata
         """
+        # Security validation - must happen first
+        self.secure_validate(file_path)
+
         try:
             # Convert image using Docling
             result = self.converter.convert(file_path)

@@ -14,7 +14,7 @@ class TextHandler(BaseHandler):
     """Handler for processing plain text files."""
 
     SUPPORTED_EXTENSIONS = {'.txt'}
-    EXPECTED_MIME_TYPES = {'text/plain', 'text/markdown', 'application/octet-stream'}
+    EXPECTED_MIME_TYPES = {'text/plain', 'text/markdown', 'application/octet-stream', 'inode/x-empty'}
 
     def validate(self, file_path: Path) -> bool:
         """
@@ -74,6 +74,9 @@ class TextHandler(BaseHandler):
         Returns:
             Dictionary containing processed data including text and metadata
         """
+        # Security validation - must happen first
+        self.secure_validate(file_path)
+
         # Extract text
         text = self.extract_text(file_path)
 

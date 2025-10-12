@@ -116,6 +116,9 @@ class PDFHandler(BaseHandler):
         Returns:
             Dictionary containing processed data including text and metadata
         """
+        # Security validation - must happen first
+        self.secure_validate(file_path)
+
         flattened_path = None
         try:
             # Flatten PDF first
