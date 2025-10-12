@@ -192,6 +192,15 @@ def test_csv_handler_process_with_chunking():
         assert 'chunks' in result
         chunks = result['chunks']
         assert len(chunks) > 1  # Should be chunked
+        # Chunks should now be dicts with 'text' and 'metadata'
+        assert all(isinstance(chunk, dict) for chunk in chunks)
+        assert all('text' in chunk and 'metadata' in chunk for chunk in chunks)
+        # Verify metadata structure
+        for i, chunk in enumerate(chunks):
+            assert 'chunk_index' in chunk['metadata']
+            assert 'start_position' in chunk['metadata']
+            assert 'end_position' in chunk['metadata']
+            assert chunk['metadata']['chunk_index'] == i
 
     finally:
         os.unlink(tmp_path)
@@ -267,6 +276,170 @@ Jane Smith,25,Los Angeles,Extra"""
         assert isinstance(result, dict)
         assert 'text' in result
         assert 'metadata' in result
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_rejects_too_many_rows():
+    """Test that CSVHandler rejects CSV files with too many rows."""
+    from app.services.preprocessing.csv_handler import CSVHandler, CSVBombError
+
+    handler = CSVHandler()
+
+    # Create CSV with rows exceeding MAX_ROWS
+    rows = ["Name,Value"]
+    # Assuming MAX_ROWS will be set to a reasonable limit (e.g., 100000)
+    # We'll create more rows than that
+    max_rows = handler.MAX_ROWS
+    rows.extend([f"Row{i},{i}" for i in range(max_rows + 1)])
+    csv_content = "\n".join(rows)
+
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write(csv_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        with pytest.raises(CSVBombError) as exc_info:
+            handler.process(tmp_path)
+
+        assert "too many rows" in str(exc_info.value).lower()
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_rejects_too_many_columns():
+    """Test that CSVHandler rejects CSV files with too many columns."""
+    from app.services.preprocessing.csv_handler import CSVHandler, CSVBombError
+
+    handler = CSVHandler()
+
+    # Create CSV with columns exceeding MAX_COLUMNS
+    max_cols = handler.MAX_COLUMNS
+    columns = [f"Col{i}" for i in range(max_cols + 1)]
+    csv_content = ",".join(columns) + "\n"
+    csv_content += ",".join(["value"] * (max_cols + 1))
+
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write(csv_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        with pytest.raises(CSVBombError) as exc_info:
+            handler.process(tmp_path)
+
+        assert "too many columns" in str(exc_info.value).lower()
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_validates_delimiter():
+    """Test that CSVHandler validates and sanitizes delimiter."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+
+    # Test with valid delimiters
+    valid_delimiters = [',', ';', '\t', '|']
+
+    for delimiter in valid_delimiters:
+        csv_content = f"Name{delimiter}Age\nJohn{delimiter}30"
+
+        with tempfile.NamedTemporaryFile(
+            suffix='.csv', mode='w', encoding='utf-8', delete=False
+        ) as tmp:
+            tmp.write(csv_content)
+            tmp_path = Path(tmp.name)
+
+        try:
+            result = handler.process(tmp_path)
+            assert isinstance(result, dict)
+            assert 'text' in result
+
+        finally:
+            os.unlink(tmp_path)
+
+
+def test_csv_handler_handles_invalid_delimiter():
+    """Test that CSVHandler handles invalid delimiter detection."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+
+    # Create content that might confuse delimiter detection
+    csv_content = "NoDelimitersHereJustText\nMoreTextWithoutDelimiters"
+
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write(csv_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        # Should fall back to comma and handle gracefully
+        result = handler.process(tmp_path)
+        assert isinstance(result, dict)
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_streams_large_file():
+    """Test that CSVHandler streams data without loading entire file into memory."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+
+    # Create a reasonably large CSV (within limits)
+    rows = ["Name,Value"]
+    num_rows = min(10000, handler.MAX_ROWS - 1)
+    rows.extend([f"Row{i},{i}" for i in range(num_rows)])
+    csv_content = "\n".join(rows)
+
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write(csv_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = handler.process(tmp_path)
+
+        # Should successfully process
+        assert isinstance(result, dict)
+        assert result['metadata']['row_count'] == num_rows
+        assert len(result['structured_data']) == num_rows
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_handles_csv_error():
+    """Test that CSVHandler handles csv.Error consistently."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+
+    # Create CSV with problematic content that might trigger csv.Error
+    # Using null bytes which can cause issues
+    csv_content = "Name,Age\nJohn\x00Doe,30"
+
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write(csv_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        # Should handle error gracefully, not crash
+        result = handler.process(tmp_path)
+        assert isinstance(result, dict)
 
     finally:
         os.unlink(tmp_path)

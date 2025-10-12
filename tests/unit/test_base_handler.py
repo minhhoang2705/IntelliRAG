@@ -54,8 +54,8 @@ def test_base_handler_concrete_subclass():
     assert handler.extract_text(test_path) == "extracted text"
 
 
-def test_base_handler_has_chunk_text_method():
-    """Test that BaseHandler provides a chunk_text method."""
+def test_base_handler_does_not_have_chunk_text_method():
+    """Test that BaseHandler no longer provides a chunk_text method (now using DocumentChunker)."""
     from app.services.preprocessing.base import BaseHandler
 
     class ConcreteHandler(BaseHandler):
@@ -70,13 +70,8 @@ def test_base_handler_has_chunk_text_method():
 
     handler = ConcreteHandler()
 
-    # Test chunking functionality
-    text = "This is a test. " * 10  # Create text with multiple sentences
-    chunks = handler.chunk_text(text, chunk_size=50, overlap=10)
-
-    assert isinstance(chunks, list)
-    assert len(chunks) > 0
-    assert all(isinstance(chunk, str) for chunk in chunks)
+    # BaseHandler should no longer have chunk_text method
+    assert not hasattr(handler, 'chunk_text')
 
 
 def test_base_handler_has_metadata_extraction():

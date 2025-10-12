@@ -58,18 +58,38 @@ class BaseHandler(ABC):
 
     def secure_validate(self, file_path: Path) -> bool:
         """Perform security validations on file."""
-        # Prevent access to sensitive system files
-        resolved_path = file_path.resolve()
+        try:
+            # Prevent access to sensitive system files
+            resolved_path = file_path.resolve(strict=True)
+        except (OSError, RuntimeError) as e:
+            raise SecurityError(f"Failed to resolve path: {str(e)}")
+
         path_str = str(resolved_path)
 
         # Block access to common sensitive directories
+        import os
+        import platform
+
         sensitive_paths = ['/etc/', '/sys/', '/proc/', '/root/']
+        if platform.system() == 'Windows':
+            sensitive_paths.extend(['C:\\Windows\\', 'C:\\Program Files\\'])
+
+        # Also check if trying to escape allowed directory
+        # Define allowed base directory (e.g., upload directory)
+        # allowed_base = Path('/path/to/allowed/uploads').resolve()
+        # if not resolved_path.is_relative_to(allowed_base):
+        #     raise SecurityError("Path outside allowed directory")
+
         for sensitive in sensitive_paths:
             if path_str.startswith(sensitive):
                 raise SecurityError("Path traversal detected")
 
-        # Check file size
-        file_size = file_path.stat().st_size
+        # Check file size (use resolved_path to avoid TOCTOU)
+        try:
+            file_size = resolved_path.stat().st_size
+        except (OSError, FileNotFoundError) as e:
+            raise SecurityError(f"Failed to access file: {str(e)}")
+
         if file_size > self.MAX_FILE_SIZE:
             raise SecurityError(f"File size exceeds {self.MAX_FILE_SIZE} bytes")
 
@@ -85,39 +105,6 @@ class BaseHandler(ABC):
                 raise SecurityError(f"Failed to validate file type: {str(e)}")
 
         return True
-
-    def chunk_text(
-        self,
-        text: str,
-        chunk_size: int = 1000,
-        overlap: int = 100
-    ) -> List[str]:
-        """
-        Split text into overlapping chunks.
-
-        Args:
-            text: Text to chunk
-            chunk_size: Maximum size of each chunk in characters
-            overlap: Number of characters to overlap between chunks
-
-        Returns:
-            List of text chunks
-        """
-        if not text:
-            return []
-
-        chunks = []
-        start = 0
-
-        while start < len(text):
-            end = min(start + chunk_size, len(text))
-            chunk = text[start:end]
-            chunks.append(chunk)
-
-            # Move to the next chunk with overlap
-            start = end - overlap if end < len(text) else end
-
-        return chunks
 
     def extract_metadata(self, file_path: Path) -> Dict[str, Any]:
         """

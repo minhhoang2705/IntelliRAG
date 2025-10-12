@@ -1,5 +1,6 @@
 """CSV file handler for document preprocessing."""
 
+import logging
 from pathlib import Path
 from typing import Dict, Any, List
 import csv
@@ -7,12 +8,38 @@ import io
 
 from .base import BaseHandler
 
+logger = logging.getLogger(__name__)
+
+
+class CSVBombError(Exception):
+    """Exception raised when CSV file exceeds security limits."""
+    pass
+
 
 class CSVHandler(BaseHandler):
     """Handler for processing CSV files."""
 
     SUPPORTED_EXTENSIONS = {'.csv'}
-    EXPECTED_MIME_TYPES = {'text/csv', 'text/plain', 'application/csv', 'inode/x-empty'}
+    EXPECTED_MIME_TYPES = {'text/csv', 'text/plain',
+                           'application/csv', 'application/octet-stream',
+                           'inode/x-empty'}
+
+    # Security limits to prevent CSV-bomb DoS attacks
+    MAX_ROWS = 100000  # Maximum number of data rows
+    MAX_COLUMNS = 1000  # Maximum number of columns
+    VALID_DELIMITERS = {',', ';', '\t', '|'}  # Valid CSV delimiters
+
+    def __init__(self, chunker_type: str = "langchain", model_id: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        """Initialize CSVHandler with DocumentChunker.
+
+        Args:
+            chunker_type: Type of chunker to use ("langchain", "hybrid", "hierarchical")
+            model_id: HuggingFace model ID for tokenization
+        """
+        super().__init__()
+        from .chunker import DocumentChunker
+        self.chunker = DocumentChunker(
+            chunker_type=chunker_type, model_id=model_id)
 
     def validate(self, file_path: Path) -> bool:
         """
@@ -32,7 +59,48 @@ class CSVHandler(BaseHandler):
         if file_path.suffix.lower() not in self.SUPPORTED_EXTENSIONS:
             return False
 
+        # Check file size (e.g., max 100MB)
+        max_size = 100 * 1024 * 1024  # 100MB
+        if file_path.stat().st_size > max_size:
+            return False
+
         return True
+
+    def _detect_delimiter(self, sample: str) -> str:
+        """
+        Detect and validate the delimiter used in a CSV sample.
+
+        Args:
+            sample: Sample text from the CSV file
+
+        Returns:
+            Validated delimiter character
+
+        Raises:
+            CSVBombError: If delimiter is not in the valid set
+        """
+        sniffer = csv.Sniffer()
+        try:
+            dialect = sniffer.sniff(sample)
+            delimiter = dialect.delimiter
+
+            # Validate delimiter is in the allowed set
+            if delimiter not in self.VALID_DELIMITERS:
+                logger.warning(
+                    "Detected delimiter '%s' not in valid set, defaulting to comma",
+                    delimiter
+                )
+                delimiter = ','
+
+            return delimiter
+        except csv.Error as e:
+            logger.warning(
+                "Failed to detect CSV delimiter (operation: delimiter_detection, sample_length: %d): %s. Defaulting to comma.",
+                len(sample),
+                str(e),
+                exc_info=True
+            )
+            return ','
 
     def extract_text(self, file_path: Path) -> str:
         """
@@ -53,30 +121,79 @@ class CSVHandler(BaseHandler):
                     return ""
 
                 # Detect delimiter
-                sniffer = csv.Sniffer()
-                try:
-                    dialect = sniffer.sniff(content[:1024])
-                    delimiter = dialect.delimiter
-                except csv.Error:
-                    delimiter = ','
+                delimiter = self._detect_delimiter(content[:1024])
 
-                # Parse CSV
+                # Parse CSV with streaming to avoid loading entire file into memory
                 f.seek(0)
                 reader = csv.reader(f, delimiter=delimiter)
-                rows = list(reader)
 
-                if not rows:
+                # Get first row to check column count
+                try:
+                    first_row = next(reader)
+                    if len(first_row) > self.MAX_COLUMNS:
+                        raise CSVBombError(
+                            f"CSV file has too many columns: {len(first_row)} exceeds limit of {self.MAX_COLUMNS}"
+                        )
+
+                    # Stream rows instead of loading all into memory
+                    text_lines = [" | ".join(first_row)]
+                    row_count = 1
+
+                    for row in reader:
+                        if row_count >= self.MAX_ROWS:
+                            raise CSVBombError(
+                                f"CSV file has too many rows: exceeds limit of {self.MAX_ROWS}"
+                            )
+                        text_lines.append(" | ".join(row))
+                        row_count += 1
+
+                    return "\n".join(text_lines)
+
+                except StopIteration:
+                    # Empty CSV
                     return ""
 
-                # Format as readable text
-                text_lines = []
-                for row in rows:
-                    text_lines.append(" | ".join(row))
-
-                return "\n".join(text_lines)
-
+        except CSVBombError:
+            # Re-raise CSV bomb errors
+            raise
+        except FileNotFoundError:
+            logger.error(
+                "File not found during text extraction (operation: extract_text, file_path: %s)",
+                file_path,
+                exc_info=True
+            )
+            return ""
+        except PermissionError:
+            logger.error(
+                "Permission denied during text extraction (operation: extract_text, file_path: %s)",
+                file_path,
+                exc_info=True
+            )
+            return ""
+        except UnicodeDecodeError as e:
+            logger.error(
+                "Encoding error during text extraction (operation: extract_text, file_path: %s, encoding: utf-8, position: %d): %s",
+                file_path,
+                e.start if hasattr(e, 'start') else 0,
+                str(e),
+                exc_info=True
+            )
+            return ""
+        except csv.Error as e:
+            logger.error(
+                "CSV parsing error during text extraction (operation: extract_text, file_path: %s, row_count: %d): %s",
+                file_path,
+                row_count if 'row_count' in locals() else 0,
+                str(e),
+                exc_info=True
+            )
+            return ""
         except Exception as e:
-            # Return empty string on error
+            logger.exception(
+                "Unexpected error during text extraction (operation: extract_text, file_path: %s): %s",
+                file_path,
+                str(e)
+            )
             return ""
 
     def process(self, file_path: Path, **kwargs) -> Dict[str, Any]:
@@ -95,23 +212,32 @@ class CSVHandler(BaseHandler):
         # Security validation - must happen first
         self.secure_validate(file_path)
 
-        # Extract text
-        text = self.extract_text(file_path)
+        # Parse CSV once and get both structured data and text
+        structured_data, columns, row_count, text = self._parse_csv_with_text(
+            file_path)
 
-        # Parse structured data
-        structured_data, columns, row_count = self._parse_csv_data(file_path)
-
-        # Extract metadata
+        # Build metadata from row_count and columns
         metadata = self._extract_csv_metadata(
             file_path, row_count, len(columns), columns
         )
 
-        # Chunk text if requested
-        chunk_size = kwargs.get('chunk_size', 1000)
-        overlap = kwargs.get('overlap', 100)
-
+        # Chunk text using DocumentChunker with custom parameters from kwargs
         if text:
-            chunks = self.chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+            # Get chunking parameters from kwargs or use defaults
+            chunk_size = kwargs.get('chunk_size', 512)
+            overlap = kwargs.get('overlap', 100)
+
+            # Create DocumentChunker with requested parameters
+            from .chunker import DocumentChunker
+            chunker = DocumentChunker(
+                chunk_size=chunk_size,
+                chunk_overlap=overlap,
+                chunker_type=self.chunker.chunker_type,
+                model_id=self.chunker.model_id
+            )
+
+            metadata_for_chunks = metadata.copy()
+            chunks = chunker.chunk_text(text, metadata=metadata_for_chunks)
         else:
             chunks = []
 
@@ -124,13 +250,16 @@ class CSVHandler(BaseHandler):
 
     def _parse_csv_data(self, file_path: Path) -> tuple[List[Dict[str, Any]], List[str], int]:
         """
-        Parse CSV file and return structured data.
+        Parse CSV file and return structured data with security limits.
 
         Args:
             file_path: Path to the CSV file
 
         Returns:
             Tuple of (structured_data, columns, row_count)
+
+        Raises:
+            CSVBombError: If CSV exceeds security limits
         """
         try:
             with open(file_path, 'r', encoding='utf-8', newline='') as f:
@@ -140,24 +269,188 @@ class CSVHandler(BaseHandler):
                     return [], [], 0
 
                 # Detect delimiter
-                sniffer = csv.Sniffer()
-                try:
-                    dialect = sniffer.sniff(content[:1024])
-                    delimiter = dialect.delimiter
-                except csv.Error:
-                    delimiter = ','
+                delimiter = self._detect_delimiter(content[:1024])
 
-                # Parse CSV with DictReader
+                # Parse CSV with DictReader and stream rows
                 f.seek(0)
                 reader = csv.DictReader(f, delimiter=delimiter)
 
+                # Validate column count BEFORE reading any data
                 columns = reader.fieldnames or []
-                rows = list(reader)
+                if len(columns) > self.MAX_COLUMNS:
+                    raise CSVBombError(
+                        f"CSV file has too many columns: {len(columns)} exceeds limit of {self.MAX_COLUMNS}"
+                    )
+
+                # Stream rows instead of loading all into memory
+                rows = []
+                for i, row in enumerate(reader):
+                    if i >= self.MAX_ROWS:
+                        raise CSVBombError(
+                            f"CSV file has too many rows: exceeds limit of {self.MAX_ROWS}"
+                        )
+                    rows.append(row)
 
                 return rows, columns, len(rows)
 
-        except Exception:
+        except CSVBombError:
+            # Re-raise CSV bomb errors
+            raise
+        except FileNotFoundError:
+            logger.error(
+                "File not found during CSV data parsing (operation: parse_csv_data, file_path: %s)",
+                file_path,
+                exc_info=True
+            )
             return [], [], 0
+        except PermissionError:
+            logger.error(
+                "Permission denied during CSV data parsing (operation: parse_csv_data, file_path: %s)",
+                file_path,
+                exc_info=True
+            )
+            return [], [], 0
+        except UnicodeDecodeError as e:
+            logger.error(
+                "Encoding error during CSV data parsing (operation: parse_csv_data, file_path: %s, encoding: utf-8, position: %d): %s",
+                file_path,
+                e.start if hasattr(e, 'start') else 0,
+                str(e),
+                exc_info=True
+            )
+            return [], [], 0
+        except csv.Error as e:
+            logger.error(
+                "CSV parsing error during data parsing (operation: parse_csv_data, file_path: %s, row_count: %d): %s",
+                file_path,
+                len(rows) if 'rows' in locals() else 0,
+                str(e),
+                exc_info=True
+            )
+            return [], [], 0
+        except ValueError as e:
+            logger.error(
+                "Validation error during CSV data parsing (operation: parse_csv_data, file_path: %s, row_count: %d, column_count: %d, max_rows: %d, max_columns: %d): %s",
+                file_path,
+                len(rows) if 'rows' in locals() else 0,
+                len(columns) if 'columns' in locals() else 0,
+                self.MAX_ROWS,
+                self.MAX_COLUMNS,
+                str(e),
+                exc_info=True
+            )
+            return [], [], 0
+        except Exception as e:
+            logger.exception(
+                "Unexpected error during CSV data parsing (operation: parse_csv_data, file_path: %s): %s",
+                file_path,
+                str(e)
+            )
+            return [], [], 0
+
+    def _parse_csv_with_text(self, file_path: Path) -> tuple[List[Dict[str, Any]], List[str], int, str]:
+        """
+        Parse CSV file once and return both structured data and text representation.
+
+        Args:
+            file_path: Path to the CSV file
+
+        Returns:
+            Tuple of (structured_data, columns, row_count, text)
+
+        Raises:
+            CSVBombError: If CSV exceeds security limits
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8', newline='') as f:
+                content = f.read()
+
+                if not content.strip():
+                    return [], [], 0, ""
+
+                # Detect delimiter once
+                delimiter = self._detect_delimiter(content[:1024])
+
+                # Parse CSV with DictReader for structured data
+                f.seek(0)
+                reader = csv.DictReader(f, delimiter=delimiter)
+
+                # Validate column count BEFORE reading any data
+                columns = reader.fieldnames or []
+                if len(columns) > self.MAX_COLUMNS:
+                    raise CSVBombError(
+                        f"CSV file has too many columns: {len(columns)} exceeds limit of {self.MAX_COLUMNS}"
+                    )
+
+                # Stream rows instead of loading all into memory
+                rows = []
+                text_lines = []
+
+                # Add header to text representation
+                if columns:
+                    text_lines.append(" | ".join(columns))
+
+                # Stream and process rows
+                for i, row in enumerate(reader):
+                    if i >= self.MAX_ROWS:
+                        raise CSVBombError(
+                            f"CSV file has too many rows: exceeds limit of {self.MAX_ROWS}"
+                        )
+                    rows.append(row)
+                    # Generate text representation on the fly
+                    if columns:
+                        text_lines.append(" | ".join(
+                            str(row.get(col, '')) for col in columns))
+
+                row_count = len(rows)
+                text = "\n".join(text_lines)
+
+                return rows, columns, row_count, text
+
+        except CSVBombError:
+            # Re-raise CSV bomb errors
+            raise
+        except FileNotFoundError:
+            logger.error(
+                "File not found during CSV parsing with text (operation: parse_csv_with_text, file_path: %s)",
+                file_path,
+                exc_info=True
+            )
+            return [], [], 0, ""
+        except PermissionError:
+            logger.error(
+                "Permission denied during CSV parsing with text (operation: parse_csv_with_text, file_path: %s)",
+                file_path,
+                exc_info=True
+            )
+            return [], [], 0, ""
+        except UnicodeDecodeError as e:
+            logger.error(
+                "Encoding error during CSV parsing with text (operation: parse_csv_with_text, file_path: %s, encoding: utf-8, position: %d): %s",
+                file_path,
+                e.start if hasattr(e, 'start') else 0,
+                str(e),
+                exc_info=True
+            )
+            return [], [], 0, ""
+        except csv.Error as e:
+            logger.error(
+                "CSV parsing error during parsing with text (operation: parse_csv_with_text, file_path: %s, row_count: %d): %s",
+                file_path,
+                len(rows) if 'rows' in locals() else 0,
+                str(e),
+                exc_info=True
+            )
+            return [], [], 0, ""
+        except Exception as e:
+            logger.exception(
+                "Unexpected error during CSV parsing with text (operation: parse_csv_with_text, file_path: %s, row_count: %d, column_count: %d): %s",
+                file_path,
+                len(rows) if 'rows' in locals() else 0,
+                len(columns) if 'columns' in locals() else 0,
+                str(e)
+            )
+            return [], [], 0, ""
 
     def _extract_csv_metadata(
         self, file_path: Path, row_count: int, column_count: int, columns: List[str]

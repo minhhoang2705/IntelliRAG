@@ -180,7 +180,17 @@ def test_text_handler_process_with_chunking():
         assert 'chunks' in result
         chunks = result['chunks']
         assert len(chunks) > 1  # Should be chunked
-        assert all(len(chunk) <= 50 for chunk in chunks)
+        # Chunks should now be dicts with 'text' and 'metadata'
+        assert all(isinstance(chunk, dict) for chunk in chunks)
+        assert all('text' in chunk and 'metadata' in chunk for chunk in chunks)
+        # Allow some buffer for token-based chunking
+        assert all(len(chunk['text']) <= 60 for chunk in chunks)
+        # Verify metadata structure
+        for i, chunk in enumerate(chunks):
+            assert 'chunk_index' in chunk['metadata']
+            assert 'start_position' in chunk['metadata']
+            assert 'end_position' in chunk['metadata']
+            assert chunk['metadata']['chunk_index'] == i
 
     finally:
         os.unlink(tmp_path)
@@ -226,7 +236,9 @@ def test_text_handler_handles_large_file():
         result = handler.process(tmp_path, chunk_size=1000)
 
         assert result['text'] == test_content
+        # Chunks are now dicts with metadata
         assert len(result['chunks']) > 100  # Should create many chunks
+        assert all(isinstance(chunk, dict) for chunk in result['chunks'])
         assert result['metadata']['char_count'] == len(test_content)
 
     finally:

@@ -14,7 +14,20 @@ class TextHandler(BaseHandler):
     """Handler for processing plain text files."""
 
     SUPPORTED_EXTENSIONS = {'.txt'}
-    EXPECTED_MIME_TYPES = {'text/plain', 'text/markdown', 'application/octet-stream', 'inode/x-empty'}
+    EXPECTED_MIME_TYPES = {'text/plain', 'text/markdown',
+                           'application/octet-stream', 'inode/x-empty'}
+
+    def __init__(self, chunker_type: str = "langchain", model_id: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        """Initialize TextHandler with DocumentChunker.
+
+        Args:
+            chunker_type: Type of chunker to use ("langchain", "hybrid", "hierarchical")
+            model_id: HuggingFace model ID for tokenization
+        """
+        super().__init__()
+        from .chunker import DocumentChunker
+        self.chunker = DocumentChunker(
+            chunker_type=chunker_type, model_id=model_id)
 
     def validate(self, file_path: Path) -> bool:
         """
@@ -77,18 +90,32 @@ class TextHandler(BaseHandler):
         # Security validation - must happen first
         self.secure_validate(file_path)
 
+        # Log processing start
+        logger.info(f"Starting TextHandler processing for {file_path.name}")
+
         # Extract text
         text = self.extract_text(file_path)
 
         # Extract metadata
         metadata = self._extract_text_metadata(file_path, text)
 
-        # Chunk text if requested
-        chunk_size = kwargs.get('chunk_size', 1000)
-        overlap = kwargs.get('overlap', 100)
-
+        # Chunk text using DocumentChunker with custom parameters from kwargs
         if text:
-            chunks = self.chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+            # Get chunking parameters from kwargs or use defaults
+            chunk_size = kwargs.get('chunk_size', 512)
+            overlap = kwargs.get('overlap', 100)
+
+            # Create DocumentChunker with requested parameters
+            from .chunker import DocumentChunker
+            chunker = DocumentChunker(
+                chunk_size=chunk_size,
+                chunk_overlap=overlap,
+                chunker_type=self.chunker.chunker_type,
+                model_id=self.chunker.model_id
+            )
+
+            metadata_for_chunks = metadata.copy()
+            chunks = chunker.chunk_text(text, metadata=metadata_for_chunks)
         else:
             chunks = []
 

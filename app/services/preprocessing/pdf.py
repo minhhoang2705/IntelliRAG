@@ -1,5 +1,6 @@
 """PDF file handler for document preprocessing using Docling with PyMuPDF flattening."""
 
+import logging
 from pathlib import Path
 from typing import Dict, Any
 import tempfile
@@ -8,6 +9,8 @@ from docling.document_converter import DocumentConverter
 
 from .base import BaseHandler
 
+logger = logging.getLogger(__name__)
+
 
 class PDFHandler(BaseHandler):
     """Handler for processing PDF files using Docling."""
@@ -15,10 +18,18 @@ class PDFHandler(BaseHandler):
     SUPPORTED_EXTENSIONS = {'.pdf'}
     EXPECTED_MIME_TYPES = {'application/pdf'}
 
-    def __init__(self):
-        """Initialize the PDF handler with Docling converter."""
+    def __init__(self, chunker_type: str = "langchain", model_id: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        """Initialize the PDF handler with Docling converter and DocumentChunker.
+
+        Args:
+            chunker_type: Type of chunker to use ("langchain", "hybrid", "hierarchical")
+            model_id: HuggingFace model ID for tokenization
+        """
         super().__init__()
         self.converter = DocumentConverter()
+        from .chunker import DocumentChunker
+        self.chunker = DocumentChunker(
+            chunker_type=chunker_type, model_id=model_id)
 
     def validate(self, file_path: Path) -> bool:
         """
@@ -55,7 +66,8 @@ class PDFHandler(BaseHandler):
             doc = fitz.open(file_path)
 
             # Create temporary file for flattened PDF
-            temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+            temp_file = tempfile.NamedTemporaryFile(
+                suffix='.pdf', delete=False)
             temp_path = Path(temp_file.name)
             temp_file.close()
 
@@ -119,6 +131,9 @@ class PDFHandler(BaseHandler):
         # Security validation - must happen first
         self.secure_validate(file_path)
 
+        # Log processing start
+        logger.info(f"Starting PDFHandler processing for {file_path.name}")
+
         flattened_path = None
         try:
             # Flatten PDF first
@@ -136,12 +151,23 @@ class PDFHandler(BaseHandler):
             # Extract metadata
             metadata = self._extract_pdf_metadata(file_path, page_count)
 
-            # Chunk text if requested
-            chunk_size = kwargs.get('chunk_size', 1000)
-            overlap = kwargs.get('overlap', 100)
-
+            # Chunk text using DocumentChunker with custom parameters from kwargs
             if text:
-                chunks = self.chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+                # Get chunking parameters from kwargs or use defaults
+                chunk_size = kwargs.get('chunk_size', 512)
+                overlap = kwargs.get('overlap', 100)
+
+                # Create DocumentChunker with requested parameters
+                from .chunker import DocumentChunker
+                chunker = DocumentChunker(
+                    chunk_size=chunk_size,
+                    chunk_overlap=overlap,
+                    chunker_type=self.chunker.chunker_type,
+                    model_id=self.chunker.model_id
+                )
+
+                metadata_for_chunks = metadata.copy()
+                chunks = chunker.chunk_text(text, metadata=metadata_for_chunks)
             else:
                 chunks = []
 
