@@ -3,6 +3,11 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+import logging
+import time
+
+
+logger = logging.getLogger(__name__)
 
 
 class SecurityError(Exception):
@@ -91,7 +96,8 @@ class BaseHandler(ABC):
             raise SecurityError(f"Failed to access file: {str(e)}")
 
         if file_size > self.MAX_FILE_SIZE:
-            raise SecurityError(f"File size exceeds {self.MAX_FILE_SIZE} bytes")
+            raise SecurityError(
+                f"File size exceeds {self.MAX_FILE_SIZE} bytes")
 
         # Validate magic bytes if EXPECTED_MIME_TYPES is defined
         if hasattr(self, 'EXPECTED_MIME_TYPES'):
@@ -121,3 +127,65 @@ class BaseHandler(ABC):
             "file_path": str(file_path),
             "file_extension": file_path.suffix.lower(),
         }
+
+    def process_with_logging(self, file_path: Path, **kwargs) -> Dict[str, Any]:
+        """Template method that wraps process() with logging and metrics.
+
+        Args:
+            file_path: Path to the file to process
+            **kwargs: Additional processing options
+
+        Returns:
+            Dictionary containing processed data
+
+        Raises:
+            Exception: Any exception raised by the process() method
+        """
+        start_time = time.time()
+        file_size = file_path.stat().st_size
+
+        # Create context for logging
+        extra_context = {
+            'file_path': str(file_path),
+            'file_name': file_path.name,
+            'file_size': file_size,
+            'handler_type': self.__class__.__name__,
+        }
+
+        logger.info(
+            f"Starting {self.__class__.__name__} processing",
+            extra={'extra_data': extra_context}
+        )
+
+        try:
+            result = self.process(file_path, **kwargs)
+
+            duration = time.time() - start_time
+            success_context = {
+                **extra_context,
+                'duration_seconds': round(duration, 3),
+                'chunk_count': len(result.get('chunks', [])),
+                'text_length': len(result.get('text', '')),
+            }
+
+            logger.info(
+                f"Successfully processed {file_path.name}",
+                extra={'extra_data': success_context}
+            )
+
+            return result
+
+        except Exception as e:
+            duration = time.time() - start_time
+            error_context = {
+                **extra_context,
+                'duration_seconds': round(duration, 3),
+                'error_type': type(e).__name__,
+            }
+
+            logger.error(
+                f"Processing failed for {file_path.name}: {str(e)}",
+                extra={'extra_data': error_context},
+                exc_info=True
+            )
+            raise

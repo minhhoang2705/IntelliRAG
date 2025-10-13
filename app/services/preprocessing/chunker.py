@@ -2,6 +2,11 @@
 
 from typing import List, Dict, Any, Optional
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import logging
+import time
+
+
+logger = logging.getLogger(__name__)
 
 
 class HybridChunker(RecursiveCharacterTextSplitter):
@@ -51,7 +56,18 @@ class DocumentChunker:
         if chunker_type == "hybrid":
             from transformers import AutoTokenizer
 
+            start_time = time.time()
             self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+            load_time = time.time() - start_time
+
+            logger.info(
+                f"Loaded tokenizer for hybrid chunker",
+                extra={'extra_data': {
+                    'model_id': model_id,
+                    'tokenizer_load_time': round(load_time, 3)
+                }}
+            )
+
             self.splitter = HybridChunker(
                 tokenizer=self.tokenizer,
                 max_tokens=chunk_size,
@@ -77,11 +93,24 @@ class DocumentChunker:
         Returns:
             List of dictionaries with 'text' and 'metadata' keys
         """
+        start_time = time.time()
+
         if not text:
             return []
 
         # Split text into chunks
         text_chunks = self.splitter.split_text(text)
+
+        duration = time.time() - start_time
+        logger.info(
+            f"Chunked text into {len(text_chunks)} chunks",
+            extra={'extra_data': {
+                'text_length': len(text),
+                'chunk_count': len(text_chunks),
+                'chunker_type': self.chunker_type,
+                'chunking_duration': round(duration, 3),
+            }}
+        )
 
         # Create result with metadata
         chunks = []
