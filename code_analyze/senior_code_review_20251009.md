@@ -4,9 +4,10 @@
 **Reviewer:** Senior Code Reviewer Agent
 **Scope:** app/services/preprocessing/chunker.py and related tests
 **Files Reviewed:**
-- `/home/minh-ubs-k8s/AIDE-1/capstone/IntelliRAG/app/services/preprocessing/chunker.py`
-- `/home/minh-ubs-k8s/AIDE-1/capstone/IntelliRAG/tests/unit/test_chunker.py`
-- `/home/minh-ubs-k8s/AIDE-1/capstone/IntelliRAG/pyproject.toml`
+**Files Reviewed:**
+- `app/services/preprocessing/chunker.py`
+- `tests/unit/test_chunker.py`
+- `pyproject.toml`
 
 ---
 

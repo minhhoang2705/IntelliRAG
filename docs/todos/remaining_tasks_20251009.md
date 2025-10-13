@@ -1,11 +1,11 @@
 # Remaining Tasks - DocumentChunker Refactoring
 
 **Generated:** 2025-10-09
-**Status:** In Progress - 4/10 Completed
+**Status:** In Progress - 5/10 Completed
 
 ---
 
-## ✅ Completed Tasks (4/10)
+## ✅ Completed Tasks (5/10)
 
 ### 1. Fix DocumentChunker tokenizer bug with proper HuggingFace initialization
 - **Status:** ✅ Completed
@@ -41,7 +41,24 @@
 
 ---
 
-## ⏳ Pending Tasks (6/10)
+### 9. Remove duplicate chunking logic from BaseHandler
+- **Status:** ✅ Completed
+- **Implementation:**
+  - Removed `chunk_text()` method from BaseHandler (base.py:89-120)
+  - Updated all handlers (CSV, Text, PDF, Image) to use DocumentChunker directly
+  - Added `__init__()` method to each handler with configurable `chunker_type` and `model_id`
+  - Handlers now create DocumentChunker instances with custom chunk_size/overlap from kwargs
+  - Changed chunk format from `List[str]` to `List[Dict[str, Any]]` with metadata
+- **Tests:**
+  - Updated all handler tests to expect new chunk format with metadata
+  - Test that chunks include 'text', 'metadata', 'chunk_index', 'start_position', 'end_position'
+  - All 56 handler tests passing
+  - All 16 chunker tests passing
+  - Coverage: 75% overall, TextHandler 100%, ImageHandler 96%
+
+---
+
+## ⏳ Pending Tasks (5/10)
 
 ### 5. Implement hierarchical chunking strategy
 - **Priority:** Medium
@@ -117,21 +134,6 @@
   - `test_handler_logs_processing_events`
   - `test_handler_logs_errors_with_context`
 
-### 9. Remove duplicate chunking logic from BaseHandler
-- **Priority:** Medium (Code Quality)
-- **Description:** Consolidate chunking logic - remove `BaseHandler.chunk_text()`, use only `DocumentChunker`
-- **Current Issue:** Two different implementations exist:
-  - `BaseHandler.chunk_text()` - Simple character-based (base.py:51-82)
-  - `DocumentChunker.chunk_text()` - Advanced with metadata (chunker.py:65-100)
-- **Implementation Plan:**
-  - Remove `chunk_text()` method from `BaseHandler`
-  - Update all handlers to use `DocumentChunker` directly
-  - Update handler `process()` methods to instantiate `DocumentChunker`
-- **Expected Outcome:** Single source of truth for chunking logic
-- **Tests Needed:**
-  - Update existing handler tests
-  - Verify handlers use DocumentChunker
-
 ### 10. Create DocxHandler implementation
 - **Priority:** Medium (Missing Component)
 - **Description:** Implement DOCX file handler (missing from architecture)
@@ -163,9 +165,9 @@
 
 ## 📊 Overall Progress
 
-**Completion:** 40% (4/10 tasks)
-**Test Coverage:** 100% (32/32 statements in chunker.py)
-**Total Tests:** 16 passing
+**Completion:** 50% (5/10 tasks)
+**Test Coverage:** 75% overall (preprocessing module)
+**Total Tests:** 72 passing (56 handler + 16 chunker)
 
 **High Priority Next Steps:**
 1. 🔴 Security validations (Task #7) - Critical for production

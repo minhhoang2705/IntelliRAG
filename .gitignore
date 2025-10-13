@@ -11,3 +11,6 @@ intellirag
 
 # environment 
 .env
+.venv/
+.cursor/
+.coverage
