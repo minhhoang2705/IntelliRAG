@@ -443,3 +443,207 @@ def test_csv_handler_handles_csv_error():
 
     finally:
         os.unlink(tmp_path)
+
+
+# New tests for improved coverage
+
+
+def test_csv_handler_validate_rejects_large_file():
+    """Test that CSVHandler rejects files larger than 100MB."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+    from unittest.mock import patch, Mock
+
+    handler = CSVHandler()
+
+    # Mock a large file
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+        tmp.write(b"Name,Age\nJohn,30")
+        tmp_path = Path(tmp.name)
+
+    try:
+        # Mock stat to return size > 100MB
+        mock_stat = Mock()
+        mock_stat.st_size = 101 * 1024 * 1024  # 101MB
+
+        with patch.object(Path, 'stat', return_value=mock_stat):
+            result = handler.validate(tmp_path)
+            assert result is False
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_extract_text_empty_content():
+    """Test that extract_text handles files with only whitespace."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+
+    # Create file with only whitespace
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write("   \n  \n  ")
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = handler.extract_text(tmp_path)
+        assert result == ""
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_extract_text_csv_bomb_rows():
+    """Test that extract_text raises CSVBombError for too many rows."""
+    from app.services.preprocessing.csv_handler import CSVHandler, CSVBombError
+
+    handler = CSVHandler()
+
+    # Create CSV exceeding MAX_ROWS
+    rows = ["Name,Value"]
+    rows.extend([f"Row{i},{i}" for i in range(handler.MAX_ROWS + 1)])
+    csv_content = "\n".join(rows)
+
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write(csv_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        with pytest.raises(CSVBombError) as exc_info:
+            handler.extract_text(tmp_path)
+
+        assert "too many rows" in str(exc_info.value).lower()
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_extract_text_csv_bomb_columns():
+    """Test that extract_text raises CSVBombError for too many columns."""
+    from app.services.preprocessing.csv_handler import CSVHandler, CSVBombError
+
+    handler = CSVHandler()
+
+    # Create CSV with too many columns
+    max_cols = handler.MAX_COLUMNS
+    columns = [f"Col{i}" for i in range(max_cols + 1)]
+    csv_content = ",".join(columns) + "\n"
+    csv_content += ",".join(["value"] * (max_cols + 1))
+
+    with tempfile.NamedTemporaryFile(
+        suffix='.csv', mode='w', encoding='utf-8', delete=False
+    ) as tmp:
+        tmp.write(csv_content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        with pytest.raises(CSVBombError) as exc_info:
+            handler.extract_text(tmp_path)
+
+        assert "too many columns" in str(exc_info.value).lower()
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_extract_text_file_not_found():
+    """Test that extract_text handles FileNotFoundError gracefully."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+    non_existent_path = Path("/non/existent/file.csv")
+
+    # Should return empty string, not crash
+    result = handler.extract_text(non_existent_path)
+    assert result == ""
+
+
+def test_csv_handler_extract_text_permission_error():
+    """Test that extract_text handles PermissionError gracefully."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+    from unittest.mock import patch
+
+    handler = CSVHandler()
+
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+        tmp.write(b"Name,Age\nJohn,30")
+        tmp_path = Path(tmp.name)
+
+    try:
+        # Mock open to raise PermissionError
+        with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+            result = handler.extract_text(tmp_path)
+            assert result == ""
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_extract_text_unicode_error():
+    """Test that extract_text handles UnicodeDecodeError gracefully."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+
+    # Create file with invalid UTF-8 bytes
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False, mode='wb') as tmp:
+        tmp.write(b"Name,Age\n")
+        tmp.write(b"\xff\xfe")  # Invalid UTF-8 sequence
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = handler.extract_text(tmp_path)
+        assert result == ""
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_parse_csv_with_text_permission_error():
+    """Test that _parse_csv_with_text handles PermissionError gracefully."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+    from unittest.mock import patch
+
+    handler = CSVHandler()
+
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+        tmp.write(b"Name,Age\nJohn,30")
+        tmp_path = Path(tmp.name)
+
+    try:
+        # Mock open to raise PermissionError
+        with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+            structured_data, columns, row_count, text = handler._parse_csv_with_text(tmp_path)
+            assert structured_data == []
+            assert columns == []
+            assert row_count == 0
+            assert text == ""
+
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_csv_handler_parse_csv_with_text_unicode_error():
+    """Test that _parse_csv_with_text handles UnicodeDecodeError gracefully."""
+    from app.services.preprocessing.csv_handler import CSVHandler
+
+    handler = CSVHandler()
+
+    # Create file with invalid UTF-8 bytes
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False, mode='wb') as tmp:
+        tmp.write(b"Name,Age\n")
+        tmp.write(b"\xff\xfe")  # Invalid UTF-8 sequence
+        tmp_path = Path(tmp.name)
+
+    try:
+        structured_data, columns, row_count, text = handler._parse_csv_with_text(tmp_path)
+        assert structured_data == []
+        assert columns == []
+        assert row_count == 0
+        assert text == ""
+
+    finally:
+        os.unlink(tmp_path)
