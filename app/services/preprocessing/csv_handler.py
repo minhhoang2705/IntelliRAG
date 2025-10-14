@@ -75,9 +75,6 @@ class CSVHandler(BaseHandler):
 
         Returns:
             Validated delimiter character
-
-        Raises:
-            CSVBombError: If delimiter is not in the valid set
         """
         sniffer = csv.Sniffer()
         try:

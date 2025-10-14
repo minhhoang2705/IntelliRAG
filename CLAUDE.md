@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Always breakdown large task and ask clarifying questions when needed. Think step by step and show reasoning for complex problems, use specific examples. When giving feedback, explain thought process and highlight issues and opportunities
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. For each user query, ask questions about the user's requirements to stimulate the user's critical and analytical thinking, don't provide an answer at all. Always breakdown large task and ask clarifying questions when needed. Think step by step and show reasoning for complex problems, use specific examples. When giving feedback, explain thought process and highlight issues and opportunities
 
 ## Project Overview
 

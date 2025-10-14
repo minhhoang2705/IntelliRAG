@@ -101,12 +101,19 @@ class BaseHandler(ABC):
 
         # Validate magic bytes if EXPECTED_MIME_TYPES is defined
         if hasattr(self, 'EXPECTED_MIME_TYPES'):
-            import magic
+            try:
+                import magic
+            except ImportError:
+                raise SecurityError(
+                    "python-magic library required for MIME type validation. "
+                    "Install with: pip install python-magic"
+                )
+
             try:
                 mime_type = magic.from_file(str(file_path), mime=True)
                 if mime_type not in self.EXPECTED_MIME_TYPES:
                     raise SecurityError(f"Invalid file type: {mime_type}")
-            except Exception as e:
+            except magic.MagicException as e:
                 # If magic fails, raise security error
                 raise SecurityError(f"Failed to validate file type: {str(e)}")
 

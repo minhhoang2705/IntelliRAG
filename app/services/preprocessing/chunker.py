@@ -47,6 +47,17 @@ class DocumentChunker:
             chunker_type: Type of chunker to use ("langchain", "hybrid", "hierarchical") (default: "langchain")
             model_id: HuggingFace model ID for tokenization (default: all-MiniLM-L6-v2)
         """
+        if chunk_size <= 0:
+            raise ValueError(f"chunk_size must be positive, got {chunk_size}")
+        if chunk_overlap < 0:
+            raise ValueError(
+                f"chunk_overlap must be non-negative, got {chunk_overlap}")
+        if chunk_overlap >= chunk_size:
+            raise ValueError(
+                f"chunk_overlap ({chunk_overlap}) must be less than chunk_size ({chunk_size})")
+        if chunker_type not in ("langchain", "hybrid"):
+            raise ValueError(
+                f"chunker_type must be 'langchain' or 'hybrid', got {chunker_type}")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.chunker_type = chunker_type
