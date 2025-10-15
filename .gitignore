@@ -14,3 +14,11 @@ intellirag
 .venv/
 .cursor/
 .coverage
+
+# Model files are large, exclude from git
+models/
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
