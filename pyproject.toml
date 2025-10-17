@@ -31,3 +31,9 @@ dependencies = [
 
 [tool.pytest.ini_options]
 tdd_guard_project_root = "/home/minh-ubs-k8s/AIDE-1/capstone/IntelliRAG"
+markers = [
+    "unit: Unit tests with mocked dependencies",
+    "integration: Integration tests with real services (Qdrant, model)",
+    "benchmark: Performance benchmarking tests",
+    "slow: Tests that take >10 seconds",
+]
