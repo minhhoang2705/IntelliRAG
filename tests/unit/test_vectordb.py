@@ -184,3 +184,92 @@ class TestVectorDBServiceCollectionManagement:
 
         assert info is not None
         assert info == mock_info
+
+
+class TestVectorDBServiceVectorOperations:
+    """Test suite for VectorDBService vector upsert operations."""
+
+    @pytest.mark.asyncio
+    async def test_vectordb_service_upsert_single_vector(self, mocker):
+        """Test upserting a single vector with metadata.
+
+        RED Phase: Will fail because upsert_vectors method doesn't exist.
+        """
+        from app.services.vectordb import VectorDBService
+
+        service = VectorDBService(url="http://localhost:6333")
+
+        # Mock the client's upsert method
+        mocker.patch.object(service.client, 'upsert', return_value=None)
+
+        # Upsert a single 768-d vector
+        vector = [0.1] * 768
+        metadata = {"text": "test document", "source": "test.pdf"}
+
+        success = await service.upsert_vectors(
+            collection_name="test_collection",
+            vectors=[vector],
+            payloads=[metadata],
+            ids=["doc_1"]
+        )
+
+        assert success is True
+
+    @pytest.mark.asyncio
+    async def test_vectordb_service_upsert_calls_qdrant_client(self, mocker):
+        """Test that upsert_vectors properly calls Qdrant client.
+
+        RED Phase: Will fail because stub doesn't call client.upsert.
+        """
+        from app.services.vectordb import VectorDBService
+
+        service = VectorDBService(url="http://localhost:6333")
+
+        # Mock the client's upsert method
+        mock_upsert = mocker.patch.object(service.client, 'upsert', return_value=None)
+
+        # Upsert a single vector
+        vector = [0.1] * 768
+        metadata = {"text": "test document"}
+
+        await service.upsert_vectors(
+            collection_name="test_collection",
+            vectors=[vector],
+            payloads=[metadata],
+            ids=["doc_1"]
+        )
+
+        # Verify the client method was called
+        mock_upsert.assert_called_once()
+
+
+class TestVectorDBServiceSearchOperations:
+    """Test suite for VectorDBService vector search operations."""
+
+    @pytest.mark.asyncio
+    async def test_vectordb_service_search_vectors(self, mocker):
+        """Test searching for similar vectors.
+
+        RED Phase: Will fail because search_vectors method doesn't exist.
+        """
+        from app.services.vectordb import VectorDBService
+
+        service = VectorDBService(url="http://localhost:6333")
+
+        # Mock search results
+        mock_results = [
+            {"id": "doc_1", "score": 0.95, "payload": {"text": "result 1"}},
+            {"id": "doc_2", "score": 0.85, "payload": {"text": "result 2"}}
+        ]
+        mocker.patch.object(service.client, 'search', return_value=mock_results)
+
+        # Search with a query vector
+        query_vector = [0.1] * 768
+        results = await service.search_vectors(
+            collection_name="test_collection",
+            query_vector=query_vector,
+            limit=5
+        )
+
+        assert len(results) == 2
+        assert results[0]["score"] == 0.95

@@ -90,9 +90,15 @@ class EmbeddingService(BaseEmbeddingService):
             with self._model_lock:
                 # Double-check after acquiring lock
                 if self._model is None:
-                    logger.info(f"Loading embedding model: {self.model_id} on device: {self.device}")
-                    self._model = SentenceTransformer(self.model_id)
-                    self._model.to(self.device)
+                    try:
+                        logger.info(
+                            f"Loading embedding model: {self.model_id} on device: {self.device}")
+                        self._model = SentenceTransformer(self.model_id)
+                        self._model.to(self.device)
+                    except Exception as e:
+                        logger.error(f"Failed to load embedding model: {e}")
+                        raise RuntimeError(
+                            f"Failed to initialize embedding model: {e}") from e
         return self._model
 
     def get_embedding_dimension(self) -> int:
@@ -188,12 +194,14 @@ class EmbeddingService(BaseEmbeddingService):
         actual_batch_size = batch_size or self.max_batch_size
 
         # Determine device for this operation
-        target_device = "cuda" if (use_gpu and torch.cuda.is_available()) else self.device
+        target_device = "cuda" if (
+            use_gpu and torch.cuda.is_available()) else self.device
 
         try:
             # Temporarily move model to GPU if requested
             if target_device != original_device:
-                logger.info(f"Temporarily moving model to {target_device} for batch processing")
+                logger.info(
+                    f"Temporarily moving model to {target_device} for batch processing")
                 self.model.to(target_device)
 
             # Process in sub-batches if needed to prevent OOM
@@ -277,5 +285,6 @@ class EmbeddingService(BaseEmbeddingService):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
-            lambda: self.embed_batch(texts, batch_size, normalize, False, use_gpu)
+            lambda: self.embed_batch(
+                texts, batch_size, normalize, False, use_gpu)
         )

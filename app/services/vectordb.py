@@ -14,9 +14,9 @@ Author: IntelliRAG Team
 Date: 2025-10-16
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, VectorParams, PointStruct
 import logging
 
 logger = logging.getLogger(__name__)
@@ -100,3 +100,49 @@ class VectorDBService:
     async def get_collection_info(self, collection_name: str):
         """Get collection information."""
         return await self.client.get_collection(collection_name)
+
+    async def upsert_vectors(
+        self,
+        collection_name: str,
+        vectors: List[List[float]],
+        payloads: List[Dict[str, Any]],
+        ids: List[str]
+    ) -> bool:
+        """Upsert vectors with metadata.
+
+        Args:
+            collection_name: Name of the collection
+            vectors: List of vectors (each vector is a list of floats)
+            payloads: List of metadata dictionaries for each vector
+            ids: List of unique IDs for each vector
+
+        Returns:
+            True if upsert successful
+        """
+        points = [
+            PointStruct(
+                id=point_id,
+                vector=vector,
+                payload=payload
+            )
+            for point_id, vector, payload in zip(ids, vectors, payloads)
+        ]
+
+        await self.client.upsert(
+            collection_name=collection_name,
+            points=points
+        )
+        return True
+
+    async def search_vectors(
+        self,
+        collection_name: str,
+        query_vector: List[float],
+        limit: int = 10
+    ):
+        """Search for similar vectors."""
+        return await self.client.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=limit
+        )
