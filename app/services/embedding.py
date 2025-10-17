@@ -11,11 +11,6 @@ Key Features:
 - Configurable batch size to prevent OOM
 - Future-proofed for multimodal embeddings
 
-Architecture:
-- Phase 1 (Current): Text-only embeddings with OCR for images
-- Phase 2 (Future): Native multimodal embeddings (CLIP/Jina)
-
-Author: IntelliRAG Team
 Date: 2025-10-15
 """
 

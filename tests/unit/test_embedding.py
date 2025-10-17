@@ -20,9 +20,6 @@ import numpy as np
 
 
 import torch
-# ============================================================================
-# Task 1.1: Base Structure Tests (RED Phase)
-# ============================================================================
 
 
 def test_embedding_service_can_be_instantiated():
@@ -96,11 +93,6 @@ def test_embedding_service_has_get_embedding_dimension():
     service = EmbeddingService()
     dimension = service.get_embedding_dimension()
     assert dimension == 768  # mpnet-base-v2 dimension
-
-
-# ============================================================================
-# Task 1.2: Single Text Embedding Tests (RED Phase)
-# ============================================================================
 
 
 def test_embedding_service_embed_single_returns_vector():
@@ -193,11 +185,6 @@ def test_embedding_service_embed_single_different_inputs():
     # Check they're actually different (not just memory references)
     differences = sum(1 for v1, v2 in zip(vector1, vector2) if abs(v1 - v2) > 0.01)
     assert differences > 100  # Expect significant differences
-
-
-# ============================================================================
-# Task 1.3: Batch Embedding Tests (RED Phase)
-# ============================================================================
 
 
 def test_embedding_service_embed_batch_returns_vectors():
@@ -326,11 +313,6 @@ def test_embedding_service_embed_batch_falls_back_to_cpu():
     assert all(len(v) == 768 for v in vectors)
 
 
-# ============================================================================
-# Task 1.4: Async Support Tests (RED Phase)
-# ============================================================================
-
-
 @pytest.mark.asyncio
 async def test_embedding_service_embed_single_async():
     """Test async single embedding."""
@@ -392,11 +374,6 @@ async def test_embedding_service_async_error_handling():
     # Empty batch should work
     vectors = await service.embed_batch_async([])
     assert vectors == []
-
-
-# ============================================================================
-# Task 1.5: Abstract Base Class Tests (RED Phase)
-# ============================================================================
 
 
 def test_base_embedding_service_is_abstract():

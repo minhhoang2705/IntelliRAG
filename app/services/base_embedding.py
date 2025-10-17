@@ -1,18 +1,4 @@
-"""Abstract base class for embedding services.
-
-This module provides the BaseEmbeddingService abstract class that defines
-the common interface for all embedding services (text, image, video, audio).
-
-This design enables future multimodal support (Phase 2) while maintaining
-a consistent interface across all embedding types.
-
-Architecture:
-- Phase 1 (Current): TextEmbeddingService (sentence-transformers)
-- Phase 2 (Future): ImageEmbeddingService (CLIP), VideoEmbeddingService, etc.
-
-Author: IntelliRAG Team
-Date: 2025-10-15
-"""
+"""Abstract base class for embedding services."""
 
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional

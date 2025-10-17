@@ -10,7 +10,6 @@ Key Features:
 - Similarity search with filtering
 - 768-dimensional vector support (matching EmbeddingService)
 
-Author: IntelliRAG Team
 Date: 2025-10-16
 """
 

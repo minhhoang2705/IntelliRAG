@@ -22,3 +22,9 @@ models/
 *.onnx
 *.pt
 *.pth
+
+# Qdrant database storage
+qdrant_storage/
+
+# Claude Code temporary files
+.claude/
