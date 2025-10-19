@@ -23,7 +23,7 @@ class OrchestratorService:
         self,
         vectordb_url: str = "http://localhost:6333",
         llm_base_url: str = "http://localhost:8000/v1",
-        llm_model: str = "Qwen/Qwen2.5-7B-Instruct"
+        llm_model: str = "Qwen/Qwen3-0.6B"
     ):
         """Initialize orchestrator with all required services.
 
@@ -35,7 +35,7 @@ class OrchestratorService:
         logger.info("Initializing OrchestratorService...")
 
         # Initialize services
-        self.embedding_service = EmbeddingService()
+        self.embedding_service = EmbeddingService(device="cpu")
         self.vectordb_service = VectorDBService(url=vectordb_url)
         self.llm_client = LLMClientService(
             base_url=llm_base_url,

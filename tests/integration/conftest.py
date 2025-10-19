@@ -22,6 +22,15 @@ def qdrant_available():
         return False
 
 
+def vllm_available():
+    """Check if vLLM is running with OpenAI-compatible API."""
+    try:
+        response = requests.get("http://localhost:8000/v1/models", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
+
 @pytest.fixture(scope="session", autouse=True)
 def check_qdrant():
     """Verify Qdrant is available before running integration tests."""
@@ -38,3 +47,21 @@ def event_loop():
     loop = policy.new_event_loop()
     yield loop
     loop.close()
+
+
+def vllm_available():
+    """Check if vLLM is running with OpenAI-compatible API."""
+    try:
+        response = requests.get("http://localhost:8000/v1/models", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
+
+@pytest.fixture(scope="session")
+def check_vllm():
+    """Verify vLLM is available before running RAG integration tests."""
+    if not vllm_available():
+        pytest.skip(
+            "vLLM not running. Start with: docker run -d --gpus all -p 8000:8000 vllm/vllm-openai --model Qwen/Qwen3-0.6B"
+        )

@@ -21,7 +21,7 @@ class LLMClientService:
         self,
         base_url: str = "http://localhost:8000/v1",
         api_key: str = "dummy-key",
-        model: str = "Qwen/Qwen2.5-7B-Instruct"
+        model: str = "Qwen/Qwen3-0.6B"
     ):
         """Initialize LLM client.
 

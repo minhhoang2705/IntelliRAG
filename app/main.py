@@ -6,6 +6,7 @@ Author: IntelliRAG Team
 Date: 2025-10-17
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.services.orchestrator import OrchestratorService
 from app.models.schemas import QueryRequest, QueryResponse
@@ -15,28 +16,36 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
-app = FastAPI(
-    title="IntelliRAG API",
-    description="Production-ready RAG system with vLLM and Qdrant",
-    version="0.1.0"
-)
-
 # Initialize orchestrator (singleton)
 orchestrator = None
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan - startup and shutdown."""
     global orchestrator
+    # Startup
     logger.info("Initializing IntelliRAG services...")
     orchestrator = OrchestratorService(
         vectordb_url="http://localhost:6333",
         llm_base_url="http://localhost:8000/v1",
-        llm_model="Qwen/Qwen2.5-7B-Instruct"
+        llm_model="Qwen/Qwen3-0.6B"
     )
     logger.info("IntelliRAG services initialized successfully")
+
+    yield  # Application runs here
+
+    # Shutdown (cleanup if needed)
+    logger.info("Shutting down IntelliRAG services...")
+
+
+# Create FastAPI app with lifespan
+app = FastAPI(
+    title="IntelliRAG API",
+    description="Production-ready RAG system with vLLM and Qdrant",
+    version="0.1.0",
+    lifespan=lifespan
+)
 
 
 @app.get("/health")
