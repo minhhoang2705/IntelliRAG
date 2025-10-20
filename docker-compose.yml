@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for metadata management
+  postgres:
+    image: postgres:18
+    container_name: intellirag-postgres
+    environment:
+      POSTGRES_DB: intellirag
+      POSTGRES_USER: intellirag_user
+      POSTGRES_PASSWORD: change_me_in_production
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intellirag_user -d intellirag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - intellirag-network
+
+  # MinIO Object Storage for documents
+  minio:
+    image: minio/minio:latest
+    container_name: intellirag-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - intellirag-network
+
+  # Qdrant Vector Database (existing)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: intellirag-qdrant
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - intellirag-network
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+  qdrant_data:
+    driver: local
+
+networks:
+  intellirag-network:
+    driver: bridge
