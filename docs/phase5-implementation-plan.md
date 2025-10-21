@@ -1,22 +1,62 @@
 # Phase 5: Document Ingestion & Storage - Implementation Plan
 
-**Date:** 2025-10-20 (Updated with PostgreSQL integration)
+**Date:** 2025-10-21 (Updated with production-grade improvements)
 **Status:** 🚧 IN PROGRESS
 **Phase Objective:** Enable document upload, storage, and processing pipeline with PostgreSQL metadata management
-**Timeline:** 13-16 hours development
+**Timeline:** 16-20 hours development (increased due to security/reliability improvements)
 **Methodology:** Test-Driven Development (TDD)
+
+---
+
+## 🔄 Changelog (2025-10-21)
+
+**Critical Improvements Applied:**
+
+1. **🔐 Security Enhancements**
+   - Added `FileValidator` service with python-magic for MIME type detection
+   - Filename sanitization to prevent path traversal attacks
+   - SHA-256 hashing for deduplication and integrity verification
+   - File size limits and extension whitelist
+
+2. **⚡ Performance & Reliability**
+   - **Switched from `minio` to `aioboto3`** (native async, 3x better performance)
+   - Production-grade database connection pool configuration
+   - Transaction isolation levels (SERIALIZABLE for duplicates, READ COMMITTED for queries)
+   - Streaming support for large file uploads/downloads
+
+3. **🛡️ Error Handling & Resilience**
+   - Comprehensive retry logic with exponential backoff
+   - Cleanup on failure (MinIO objects + database rollback)
+   - Idempotency keys to prevent duplicate uploads on retry
+   - Transient vs permanent error classification
+
+4. **📊 Observability (Optional for Phase 5)**
+   - Prometheus metrics integration (counters, histograms)
+   - Request correlation IDs for distributed tracing
+   - Structured logging for all operations
+
+5. **🗄️ Database Optimizations**
+   - Composite indexes for common query patterns
+   - Connection lifecycle management (timeouts, max_inactive_connection_lifetime)
+   - Query timeout protection (60s default)
+
+**Dependencies Updated:**
+- ✅ `aioboto3` (replaces minio for async S3 operations)
+- ✅ `python-magic` (MIME type detection, requires system libmagic on Linux)
+- ✅ `prometheus-client` (optional metrics)
 
 ---
 
 ## Executive Summary
 
-Phase 5 implements the critical missing piece in the IntelliRAG system: **document ingestion**. Currently, users can only query pre-loaded documents. This phase adds the ability to upload, store, process, and index user documents for RAG queries.
+Phase 5 implements the critical missing piece in the IntelliRAG system: **document ingestion**. Currently, users can only query pre-loaded documents. This phase adds the ability to upload, store, process, and index user documents for RAG queries with **production-grade security and reliability**.
 
 **Key Innovations:**
-- **Dual-Storage Architecture**: PostgreSQL for ACID-compliant metadata management + MinIO for S3-compatible object storage
-- **Transaction Safety**: Full rollback capability on processing failures with comprehensive error handling
+- **Dual-Storage Architecture**: PostgreSQL for ACID-compliant metadata management + MinIO (via aioboto3) for S3-compatible object storage
+- **Security-First Design**: FileValidator with MIME detection, filename sanitization, and hash-based deduplication
+- **Transaction Safety**: Full rollback capability on processing failures with comprehensive error handling and retry logic
 - **Real-Time Observability**: Complete audit trail and processing status tracking at every pipeline step
-- **Production-Grade Deduplication**: SHA-256 hash-based duplicate detection prevents reprocessing
+- **Production-Grade Configuration**: Connection pooling, command timeouts, transaction isolation levels
 
 ---
 
@@ -199,6 +239,10 @@ CREATE INDEX idx_documents_uploaded_at ON documents(uploaded_at DESC);
 CREATE INDEX idx_documents_file_hash ON documents(file_hash);
 CREATE INDEX idx_documents_custom_metadata ON documents USING GIN(custom_metadata);
 
+-- Composite indexes for common queries
+CREATE INDEX idx_documents_collection_uploaded ON documents(collection_id, uploaded_at DESC);
+CREATE INDEX idx_documents_collection_hash ON documents(collection_id, file_hash);  -- For duplicate checks
+
 -- Processing Jobs Table
 CREATE TABLE processing_jobs (
     job_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -234,6 +278,10 @@ CREATE TABLE processing_jobs (
 CREATE INDEX idx_jobs_document ON processing_jobs(document_id);
 CREATE INDEX idx_jobs_status ON processing_jobs(status);
 CREATE INDEX idx_jobs_created_at ON processing_jobs(created_at DESC);
+
+-- Composite indexes for monitoring queries
+CREATE INDEX idx_jobs_status_created ON processing_jobs(status, created_at DESC);
+CREATE INDEX idx_jobs_collection_status ON processing_jobs(collection_id, status);
 
 -- Document Chunks Table (for tracking chunks metadata)
 CREATE TABLE document_chunks (
@@ -507,27 +555,44 @@ On Error in Background Processing:
 **API Design:**
 ```python
 class MinIOStorageService:
-    def __init__(self, endpoint, access_key, secret_key, secure=False)
+    """S3-compatible storage service using aioboto3 for native async support.
+
+    NOTE: Using aioboto3 instead of minio SDK because:
+    - Native async/await support (minio SDK is synchronous)
+    - Better integration with asyncio event loop
+    - S3-compatible API works seamlessly with MinIO
+    """
+    def __init__(self, endpoint, access_key, secret_key, region='us-east-1', secure=False)
+    async def __aenter__(self) / __aexit__(self)  # Async context manager
     async def ensure_buckets_exist(self, bucket_names: List[str]) -> None
-    async def upload_file(self, bucket: str, object_path: str, file_data: BinaryIO, metadata: Dict) -> str
+    async def upload_file(self, bucket: str, object_path: str, file_data: BinaryIO,
+                         metadata: Dict, content_type: str = None) -> str
+    async def upload_fileobj_streaming(self, bucket: str, object_path: str,
+                                       file_stream: AsyncIterator[bytes], metadata: Dict) -> str
     async def download_file(self, bucket: str, object_path: str) -> bytes
-    async def get_presigned_url(self, bucket: str, object_path: str, expires_hours: int = 24) -> str
-    async def list_objects(self, bucket: str, prefix: str = "") -> List[ObjectInfo]
+    async def download_file_streaming(self, bucket: str, object_path: str) -> AsyncIterator[bytes]
+    async def get_presigned_url(self, bucket: str, object_path: str, expires_seconds: int = 86400) -> str
+    async def list_objects(self, bucket: str, prefix: str = "") -> List[Dict]
     async def delete_object(self, bucket: str, object_path: str) -> bool
-    async def get_metadata(self, bucket: str, object_path: str) -> Dict
+    async def get_object_metadata(self, bucket: str, object_path: str) -> Dict
+    async def object_exists(self, bucket: str, object_path: str) -> bool
 ```
 
-**Tests:** `tests/unit/test_storage.py` (6-8 tests)
-- test_minio_client_initialization
+**Tests:** `tests/unit/test_storage.py` (10-12 tests)
+- test_storage_service_initialization
+- test_async_context_manager
 - test_bucket_creation
-- test_file_upload
+- test_file_upload_with_metadata
+- test_file_upload_streaming_large_file
 - test_file_download
+- test_file_download_streaming
 - test_presigned_url_generation
-- test_list_objects
+- test_list_objects_with_prefix
 - test_delete_object
-- test_error_handling
+- test_object_exists_check
+- test_error_handling_network_failure
 
-**Estimated Time:** 2 hours
+**Estimated Time:** 2.5 hours (increased due to aioboto3 setup and streaming support)
 
 ---
 
@@ -538,21 +603,30 @@ class MinIOStorageService:
 **Purpose:** Async PostgreSQL operations for metadata management
 
 **Features:**
-- Initialize PostgreSQL connection pool (asyncpg)
+- Initialize PostgreSQL connection pool with production-grade configuration
+  - Configurable pool size (min/max connections)
+  - Command timeouts to prevent hanging queries
+  - Connection lifecycle management (max_inactive_connection_lifetime)
 - Database migrations (Alembic)
 - CRUD operations for collections, documents, processing_jobs
-- Transaction management
+- Transaction management with configurable isolation levels
+  - SERIALIZABLE for duplicate prevention (file hash checks)
+  - READ COMMITTED for general queries
 - Query builders for complex filters
-- Connection health checks
+- Connection health checks with timeout
 
 **API Design:**
 ```python
 class DatabaseService:
     def __init__(self, database_url: str)
 
-    async def connect(self) -> None
+    async def connect(self,
+                     min_size: int = 10,
+                     max_size: int = 20,
+                     command_timeout: float = 60.0,
+                     max_inactive_connection_lifetime: float = 300.0) -> None
     async def disconnect(self) -> None
-    async def health_check(self) -> bool
+    async def health_check(self, timeout: float = 5.0) -> bool
 
     # Collection operations
     async def create_collection(
@@ -598,6 +672,7 @@ class DatabaseService:
     async def check_duplicate_document(
         self, collection_id: UUID, file_hash: str
     ) -> Optional[UUID]
+    # NOTE: Uses SERIALIZABLE isolation to prevent race conditions on duplicate checks
 
     async def delete_document(self, document_id: UUID) -> bool
 
@@ -669,7 +744,107 @@ def downgrade():
 
 ---
 
-### Task 3: Enhanced Pydantic Schemas (Priority: HIGH)
+### Task 3: File Validator Service (Priority: HIGH - SECURITY)
+
+**File:** `app/services/file_validator.py`
+
+**Purpose:** Validate uploaded files for security and integrity before processing
+
+**Critical Security Features:**
+- **MIME Type Validation**: Use `python-magic` to detect actual file type (don't trust client headers)
+- **File Size Limits**: Enforce max file size (default 100MB, configurable)
+- **Filename Sanitization**: Remove path traversal attempts (`../`, absolute paths)
+- **SHA-256 Hash Calculation**: For deduplication and integrity verification
+- **Extension Whitelist**: Only allow supported file types
+- **Malicious Content Detection**: Basic checks for known attack patterns
+
+**API Design:**
+```python
+class FileValidator:
+    """Validates uploaded files for security and integrity.
+
+    Security checks:
+    - Verify MIME type matches file extension
+    - Detect file type from binary content (python-magic)
+    - Sanitize filenames to prevent path traversal
+    - Calculate SHA-256 hash for deduplication
+    - Enforce size limits
+    """
+
+    ALLOWED_MIME_TYPES = {
+        'application/pdf': ['.pdf'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+        'text/plain': ['.txt'],
+        'text/csv': ['.csv'],
+        'image/jpeg': ['.jpg', '.jpeg'],
+        'image/png': ['.png']
+    }
+
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB default
+
+    def __init__(self, max_file_size: int = MAX_FILE_SIZE)
+
+    async def validate_file(self, file: UploadFile) -> FileValidationResult:
+        """Validate uploaded file.
+
+        Returns:
+            FileValidationResult with validation status, errors, metadata
+
+        Raises:
+            FileValidationError: If validation fails critically
+        """
+        pass
+
+    def sanitize_filename(self, filename: str) -> str:
+        """Remove dangerous characters and path components."""
+        pass
+
+    async def calculate_hash(self, file_data: BinaryIO) -> str:
+        """Calculate SHA-256 hash of file content."""
+        pass
+
+    def detect_mime_type(self, file_data: bytes) -> str:
+        """Detect actual MIME type using python-magic."""
+        pass
+
+    def validate_extension(self, filename: str, detected_mime: str) -> bool:
+        """Verify file extension matches detected MIME type."""
+        pass
+
+@dataclass
+class FileValidationResult:
+    """Result of file validation."""
+    is_valid: bool
+    sanitized_filename: str
+    detected_mime_type: str
+    file_hash: str
+    file_size: int
+    errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+```
+
+**Tests:** `tests/unit/test_file_validator.py` (12-15 tests)
+- test_validator_initialization
+- test_valid_pdf_file
+- test_valid_docx_file
+- test_invalid_mime_type_mismatch
+- test_file_size_exceeds_limit
+- test_filename_sanitization_removes_path_traversal
+- test_filename_sanitization_removes_special_chars
+- test_sha256_hash_calculation
+- test_mime_type_detection_pdf
+- test_mime_type_detection_image
+- test_extension_validation_mismatch
+- test_disallowed_file_type
+- test_empty_file_rejection
+- test_corrupted_file_detection
+- test_validation_result_structure
+
+**Estimated Time:** 2 hours
+
+---
+
+### Task 4: Enhanced Pydantic Schemas (Priority: HIGH)
 
 **File:** `app/models/schemas.py` (update existing)
 
@@ -756,19 +931,29 @@ class CollectionListResponse(BaseModel):
 **Purpose:** Orchestrate document upload and processing
 
 **Features:**
-- Accept uploaded file
-- Generate unique job_id
-- Store raw file in MinIO
-- Trigger async processing pipeline
-- Track processing status
-- Handle errors and retries
+- **File Validation**: Use FileValidator for security checks
+- **Duplicate Detection**: Check file hash before processing (SERIALIZABLE transaction)
+- **Idempotency**: Support idempotency keys to prevent duplicate uploads on retry
+- Generate unique job_id (UUID)
+- Store raw file in MinIO with streaming for large files
+- Create database records (document, processing_job) in a transaction
+- Trigger async processing pipeline with background tasks
+- Track processing status with granular step tracking
+- Comprehensive error handling with retry logic
+  - Network failures (MinIO, Qdrant)
+  - Parsing errors (malformed PDFs, corrupted files)
+  - Embedding service errors (vLLM timeouts)
+  - Database transaction rollbacks
+- Cleanup on failure (delete MinIO objects, rollback DB)
 
 **API Design:**
 ```python
 class IngestionService:
     def __init__(
         self,
+        database_service: DatabaseService,
         storage_service: MinIOStorageService,
+        file_validator: FileValidator,
         embedding_service: EmbeddingService,
         vectordb_service: VectorDBService,
         preprocessing_pipeline: PreprocessingPipeline
@@ -778,40 +963,94 @@ class IngestionService:
         self,
         file: UploadFile,
         collection_name: str,
-        metadata: Optional[Dict] = None
-    ) -> UploadResponse
+        metadata: Optional[Dict] = None,
+        idempotency_key: Optional[str] = None
+    ) -> UploadResponse:
+        """Ingest a document with full validation and error handling.
 
-    async def process_document(self, job_id: str) -> None
+        Steps:
+        1. Validate file (FileValidator)
+        2. Check for duplicates (by file_hash with SERIALIZABLE isolation)
+        3. Check idempotency key (if provided)
+        4. Create collection if doesn't exist
+        5. Store file in MinIO (with streaming for large files)
+        6. Create database records in transaction
+        7. Trigger background processing
+        8. Return job_id and initial status
 
-    async def get_status(self, job_id: str) -> ProcessingStatus
+        Raises:
+            FileValidationError: Invalid file type, size, or security check failed
+            DuplicateFileError: File already exists in collection
+            StorageError: MinIO upload failed
+            DatabaseError: Transaction failed
+        """
+        pass
+
+    async def process_document(self, job_id: str) -> None:
+        """Process document through full pipeline with error recovery."""
+        pass
+
+    async def get_status(self, job_id: str) -> ProcessingStatus:
+        """Get current processing status with detailed step information."""
+        pass
 
     async def _update_progress(
         self,
         job_id: str,
         step: ProcessingStep,
-        status: StepStatus
-    ) -> None
+        status: StepStatus,
+        error_msg: Optional[str] = None
+    ) -> None:
+        """Update job progress in database."""
+        pass
+
+    async def _cleanup_on_failure(self, job_id: str, document_id: UUID) -> None:
+        """Clean up MinIO objects and database records on failure."""
+        pass
+
+    async def _should_retry(self, job_id: str, error: Exception) -> bool:
+        """Determine if job should be retried based on error type and retry count."""
+        pass
 ```
 
-**Processing Pipeline:**
-1. Store file in MinIO (raw-documents bucket)
-2. Parse document using existing preprocessing handlers
-3. Store parsed content in MinIO (processed-documents bucket)
-4. Chunk text using existing chunker
-5. Store chunks in MinIO (document-chunks bucket)
-6. Generate embeddings
-7. Store vectors in Qdrant
-8. Update status to completed
+**Processing Pipeline with Error Handling:**
+1. **Validate & Check Duplicates** (FileValidator + DB)
+   - Error: Return ValidationError to user immediately
+2. **Store file in MinIO** (raw-documents bucket, streaming)
+   - Error: Retry up to 3 times, then fail job
+3. **Parse document** (existing preprocessing handlers)
+   - Error: Mark step failed, retry if transient, else fail job
+4. **Store parsed content** in MinIO (processed-documents bucket)
+   - Error: Retry, cleanup on permanent failure
+5. **Chunk text** (existing chunker)
+   - Error: Usually succeeds, but handle edge cases
+6. **Store chunks** in MinIO (document-chunks bucket)
+   - Error: Retry with cleanup
+7. **Generate embeddings** (vLLM service)
+   - Error: Retry with exponential backoff (vLLM may be busy)
+8. **Store vectors in Qdrant**
+   - Error: Retry, cleanup all MinIO objects on failure
+9. **Update status to completed**, update collection stats
+   - Error: Retry DB update, log if fails
 
-**Tests:** `tests/unit/test_ingestion.py` (5-6 tests)
+**Tests:** `tests/unit/test_ingestion.py` (12-15 tests)
 - test_ingest_document_creates_job
-- test_document_stored_in_minio
+- test_file_validation_integration
+- test_duplicate_file_detection
+- test_idempotency_key_prevents_duplicate
+- test_document_stored_in_minio_streaming
 - test_processing_pipeline_execution
-- test_status_tracking
-- test_error_handling
-- test_concurrent_ingestions
+- test_status_tracking_all_steps
+- test_error_handling_validation_failure
+- test_error_handling_minio_failure
+- test_error_handling_parsing_failure
+- test_error_handling_embedding_failure
+- test_cleanup_on_failure
+- test_retry_logic_transient_errors
+- test_concurrent_ingestions_same_file
+- test_transaction_rollback_on_db_error
 
-**Estimated Time:** 2 hours
+**Estimated Time:** 3.5 hours (increased due to comprehensive error handling)
 
 ---
 
@@ -1199,12 +1438,119 @@ async def test_processing_status_tracking():
 - GPU for embedding generation
 
 **Python Packages:**
-- `minio` - MinIO Python SDK
+- `aioboto3` - Async S3-compatible client (replaces minio for native async support)
 - `asyncpg` - Async PostgreSQL driver
 - `sqlalchemy[asyncio]` - ORM and query builder (optional, for complex queries)
 - `alembic` - Database migrations
 - `python-multipart` - File upload handling
 - `pydantic-settings` - Configuration management
+- `python-magic` - MIME type detection for file validation security (requires system libmagic)
+- `prometheus-client` - Metrics for production monitoring (optional)
+
+---
+
+## Production Configuration & Security
+
+### Database Connection Pool (app/config.py)
+
+Add production-grade PostgreSQL connection pool settings:
+
+```python
+class Settings(BaseSettings):
+    # ... existing settings ...
+
+    # Database Connection Pool
+    db_pool_min_size: int = 10  # Minimum connections
+    db_pool_max_size: int = 20  # Maximum connections
+    db_command_timeout: float = 60.0  # Query timeout (seconds)
+    db_max_inactive_connection_lifetime: float = 300.0  # 5 minutes
+    db_connection_timeout: float = 10.0  # Connection attempt timeout
+
+    # File Upload Limits
+    max_file_size_mb: int = 100  # Maximum file size in MB
+    allowed_mime_types: List[str] = field(default_factory=lambda: [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'text/csv',
+        'image/jpeg',
+        'image/png'
+    ])
+
+    # MinIO/S3 Configuration
+    minio_region: str = 'us-east-1'  # Required for aioboto3
+    minio_use_ssl: bool = False  # True in production with proper certs
+
+    # Security
+    enable_file_validation: bool = True  # Always True in production
+    enable_duplicate_detection: bool = True
+```
+
+### Transaction Isolation Guidelines
+
+Use appropriate isolation levels based on operation:
+
+**SERIALIZABLE** (prevents race conditions):
+- `check_duplicate_document()` - Prevents concurrent duplicate uploads
+- `create_document()` when checking hash simultaneously
+- Any operation that requires read-then-write consistency
+
+**READ COMMITTED** (default, better performance):
+- `get_collection()`, `list_documents()` - Read-only queries
+- `update_job_status()` - Status updates (idempotent)
+- `create_chunks()` - Chunk insertions (no conflicts)
+
+### Error Handling Strategy
+
+**Transient Errors** (retry with exponential backoff):
+- Network timeouts (MinIO, Qdrant, vLLM)
+- Database connection pool exhaustion
+- Temporary service unavailability
+
+**Permanent Errors** (fail immediately, no retry):
+- File validation failures
+- Duplicate file errors
+- Malformed file content
+- Invalid API parameters
+
+**Cleanup Requirements**:
+- Delete MinIO objects on processing failure
+- Rollback database transactions on error
+- Update job status to 'failed' with error details
+- Log full stack trace for debugging
+
+### Security Checklist
+
+- [ ] File validation enabled (FileValidator)
+- [ ] MIME type detection from binary content (python-magic)
+- [ ] Filename sanitization (remove path traversal)
+- [ ] File size limits enforced
+- [ ] SHA-256 hashing for deduplication
+- [ ] Database connection pool configured
+- [ ] Command timeouts set to prevent hanging
+- [ ] MinIO buckets have proper access policies
+- [ ] No secrets in code (use environment variables)
+- [ ] Error messages don't expose sensitive info
+
+### Observability (Optional for Phase 5, Recommended for Production)
+
+**Logging**:
+- Structured logging with request IDs
+- Log all file uploads (filename, size, hash, user)
+- Log processing pipeline steps
+- Log all errors with stack traces
+
+**Metrics** (Prometheus):
+- `upload_requests_total` - Counter
+- `upload_size_bytes` - Histogram
+- `processing_duration_seconds` - Histogram by step
+- `file_validation_failures_total` - Counter by reason
+- `duplicate_files_detected_total` - Counter
+
+**Tracing**:
+- Request correlation IDs
+- Track end-to-end processing time
+- Identify bottlenecks (parsing vs embedding vs indexing)
 
 ---
 
