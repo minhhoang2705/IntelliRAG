@@ -76,13 +76,39 @@ class DatabaseService:
             
         Returns:
             Record of the created collection
+            
+        Raises:
+            DuplicateResourceError: If collection name already exists
+            DatabaseServiceError: For other database errors
         """
-        query = """
-            INSERT INTO collections (collection_name, description)
-            VALUES ($1, $2)
-            RETURNING *
-        """
-        return await self.pool.fetchrow(query, collection_name, description)
+        from asyncpg.exceptions import UniqueViolationError, PostgresError
+        from app.exceptions import DuplicateResourceError, DatabaseServiceError
+        
+        try:
+            query = """
+                INSERT INTO collections (collection_name, description)
+                VALUES ($1, $2)
+                RETURNING *
+            """
+            return await self.pool.fetchrow(query, collection_name, description)
+            
+        except UniqueViolationError as e:
+            logger.warning(f"Duplicate collection: {collection_name}")
+            raise DuplicateResourceError(
+                f"Collection '{collection_name}' already exists"
+            ) from e
+            
+        except PostgresError as e:
+            logger.error(f"Database error creating collection: {e}", exc_info=True)
+            raise DatabaseServiceError(
+                "Failed to create collection due to database error"
+            ) from e
+            
+        except Exception as e:
+            logger.exception(f"Unexpected error creating collection: {e}")
+            raise DatabaseServiceError(
+                "An unexpected error occurred"
+            ) from e
 
     async def get_collection(self, collection_name: str):
         """Get a collection by name.

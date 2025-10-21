@@ -399,3 +399,26 @@ class TestDatabaseService:
             assert documents[0]['filename'] == 'doc1.pdf'
             assert documents[1]['filename'] == 'doc2.pdf'
             mock_pool.fetch.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_collection_duplicate_error(self):
+        """Test that duplicate collection raises DuplicateResourceError."""
+        from app.services.database import DatabaseService
+        from app.exceptions import DuplicateResourceError
+        from asyncpg.exceptions import UniqueViolationError
+        from unittest.mock import AsyncMock, patch, MagicMock
+        
+        mock_pool = MagicMock()
+        mock_pool.fetchrow = AsyncMock(side_effect=UniqueViolationError("duplicate key"))
+        
+        with patch('app.services.database.asyncpg.create_pool', new_callable=AsyncMock, return_value=mock_pool):
+            db_service = DatabaseService(database_url="postgresql+asyncpg://test:pass@localhost:5432/testdb")
+            await db_service.connect()
+            
+            with pytest.raises(DuplicateResourceError) as exc_info:
+                await db_service.create_collection(
+                    collection_name='duplicate-collection',
+                    description='This will fail'
+                )
+            
+            assert "already exists" in str(exc_info.value).lower()
