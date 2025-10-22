@@ -1,7 +1,63 @@
+# ⚠️ DEPRECATED: Phase 5 Implementation Plan
+
+> **WARNING**: This document is DEPRECATED as of 2025-10-22 and should NOT be used for new development.
+>
+> The architecture described in this document (PostgreSQL + MinIO) has been replaced with a new cloud-native architecture (Google Cloud Storage + Qdrant Payloads + LangChain/LangGraph integration).
+
+---
+
+## 🔄 Migration Notice
+
+**Deprecated Architecture:**
+- PostgreSQL for metadata storage
+- MinIO for object storage
+- Custom document processing services
+
+**New Architecture:**
+- Google Cloud Storage (GCS) for raw documents
+- Qdrant Payloads for all metadata (eliminates PostgreSQL)
+- LangChain for document loaders and text processing
+- LangGraph for query routing and agent orchestration
+
+**Reason for Change:**
+The project has pivoted to a cloud-native, production-ready architecture that:
+1. Eliminates operational complexity of PostgreSQL management
+2. Leverages fully managed cloud storage (GCS)
+3. Simplifies metadata management using Qdrant payloads
+4. Integrates battle-tested LangChain/LangGraph frameworks
+5. Includes complete MLOps and observability stack
+
+**New Documentation:**
+Please refer to the following updated documents:
+
+| Document | Purpose |
+|----------|---------|
+| [langchain-refactoring-feasibility-analysis.md](./langchain-refactoring-feasibility-analysis.md) | Complete architecture overview, hybrid approach, implementation strategy |
+| [gcs-integration-plan.md](./gcs-integration-plan.md) | GCS client implementation, Qdrant payload schema, LangChain integration |
+| [mlops-infrastructure.md](./mlops-infrastructure.md) | CI/CD pipeline, MLFlow, DVC, deployment automation |
+| [observability-stack.md](./observability-stack.md) | Prometheus, Grafana, Jaeger, Loki, Evidently monitoring |
+| [CLAUDE.md](../CLAUDE.md) | Updated project instructions with GCS and MLOps stack |
+
+**Migration Path:**
+1. Stop implementing PostgreSQL DatabaseService
+2. Review new architecture in `langchain-refactoring-feasibility-analysis.md`
+3. Implement GCSStorageService following `gcs-integration-plan.md`
+4. Use Qdrant payloads for all metadata (no separate database)
+5. Integrate LangChain loaders for document processing
+6. Setup MLOps pipeline following `mlops-infrastructure.md`
+
+---
+
+## 📚 Historical Document (For Reference Only)
+
+*The content below is preserved for historical reference and should not be implemented.*
+
+---
+
 # Phase 5: Document Ingestion & Storage - Implementation Plan
 
 **Date:** 2025-10-21 (Updated with production-grade improvements)
-**Status:** 🚧 IN PROGRESS
+**Status:** ⛔ DEPRECATED (See notice above)
 **Phase Objective:** Enable document upload, storage, and processing pipeline with PostgreSQL metadata management
 **Timeline:** 16-20 hours development (increased due to security/reliability improvements)
 **Methodology:** Test-Driven Development (TDD)

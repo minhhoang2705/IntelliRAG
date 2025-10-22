@@ -56,13 +56,23 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - SSL/TLS termination
   - Kubernetes Ingress Controller
 
+### **Storage & Data Management**
+- **Google Cloud Storage (GCS)**
+  - Raw document storage
+  - Fully managed cloud storage
+  - Native GCP integration
+  - Async operations via `gcloud-aio-storage`
+  - Cost-effective ($0.026/GB/month)
+
 ### **Vector Database & Embeddings**
 - **Qdrant** (`/qdrant/qdrant-client` - Trust: 9.8)
   - Async operations supported
   - Collection management
   - Vector search with filters
-  - Persistence layer for embeddings
-  
+  - **Payload metadata storage** (replaces traditional database)
+  - Full-text search and filtering on payloads
+  - Co-located vectors + metadata for performance
+
 - **Sentence Transformers** (`/ukplab/sentence-transformers` - Trust: 7.8)
   - Pre-trained embedding models
   - Batch encoding support
@@ -386,14 +396,20 @@ rag-system/
 ```
 User → UI → NGINX → Orchestrator
                         ↓
-                  Preprocessing Pipeline
-                    ├─> Parse (Docling)
-                    ├─> Chunk (LangChain)
-                    └─> Embed (SentenceTransformers)
-                        ↓
-                    Qdrant (Store)
-                        ↓
-                    DVC (Version)
+                ┌───────┴────────┐
+                ↓                ↓
+    Store Raw Document      Preprocessing Pipeline
+    in GCS Bucket              ├─> Load (LangChain GCS Loader)
+                              ├─> Parse (Docling)
+                              ├─> Chunk (LangChain)
+                              └─> Embed (SentenceTransformers)
+                                  ↓
+                              Qdrant (Store Vectors + Metadata)
+                              - Vector embeddings
+                              - Document metadata in payload
+                              - GCS path reference
+                                  ↓
+                              DVC (Version Dataset)
 ```
 
 ### **Flow 2: Query/RAG (Conditional Routing)**
