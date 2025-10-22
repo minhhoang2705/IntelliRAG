@@ -53,7 +53,6 @@ class TestDatabaseSchema:
 
         finally:
             await conn.close()
-
     @pytest.mark.asyncio
     async def test_document_chunks_table_exists(self):
         """Test that document_chunks table exists."""
