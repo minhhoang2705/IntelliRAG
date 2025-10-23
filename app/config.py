@@ -20,29 +20,22 @@ class Settings(BaseSettings):
     debug: bool = False
     environment: str = "development"
 
-    # PostgreSQL Configuration
-    postgres_host: str = "localhost"
-    postgres_port: int = 5432
-    postgres_db: str = "intellirag"
-    postgres_user: str = "intellirag_user"
-    postgres_password: str
+    # Google Cloud Storage (GCS) Configuration
+    gcs_project_id: str = "intellirag-project"
+    gcs_bucket_name: str = "intellirag-raw-documents"
+    gcs_credentials_path: str = Field(default="", description="Path to GCS service account JSON file")
+    gcs_use_default_credentials: bool = Field(default=True, description="Use default GCP credentials")
 
-    # Database Pool Settings
-    db_pool_min_size: int = 5
-    db_pool_max_size: int = 20
-    db_pool_timeout: int = 30
+    # GCS Storage Settings
+    gcs_upload_timeout: int = Field(default=300, description="Upload timeout in seconds")
+    gcs_download_timeout: int = Field(default=300, description="Download timeout in seconds")
+    gcs_max_retries: int = Field(default=3, description="Maximum retry attempts for GCS operations")
 
-    # MinIO Configuration
-    minio_endpoint: str = "localhost:9000"
-    minio_access_key: str
-    minio_secret_key: str
-    minio_secure: bool = False
-    minio_region: str = "us-east-1"
+    # PostgreSQL Configuration (REMOVED - Replaced by Qdrant Payloads)
+    # All metadata now stored in Qdrant payloads. See app/models/schemas.py
 
-    # MinIO Buckets
-    raw_documents_bucket: str = "raw-documents"
-    processed_documents_bucket: str = "processed-documents"
-    document_chunks_bucket: str = "document-chunks"
+    # MinIO Configuration (REMOVED - Replaced by Google Cloud Storage)
+    # All document storage now uses GCS. See GCS Configuration section above.
 
     # Qdrant Configuration
     qdrant_url: str = "http://localhost:6333"
@@ -67,15 +60,6 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_temperature: float = 0.7
     rag_max_tokens: int = 512
-
-    @computed_field
-    @property
-    def database_url(self) -> str:
-        """Construct PostgreSQL database URL."""
-        return (
-            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
 
     @computed_field
     @property
