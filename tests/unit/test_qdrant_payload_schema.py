@@ -21,7 +21,7 @@ Date: 2025-01-23
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, UTC
 from pydantic import ValidationError
 
 
@@ -36,7 +36,7 @@ class TestDocumentMetadataSchema:
             filename="test.pdf",
             content_type="application/pdf",
             file_size=1024,
-            upload_timestamp=datetime.utcnow()
+            upload_timestamp=datetime.now(UTC)
         )
 
         assert metadata.filename == "test.pdf"
@@ -53,7 +53,7 @@ class TestDocumentMetadataSchema:
                 filename="test.pdf",
                 content_type="application/pdf",
                 file_size=-100,
-                upload_timestamp=datetime.utcnow()
+                upload_timestamp=datetime.now(UTC)
             )
 
         assert "file_size" in str(exc_info.value).lower()
@@ -150,7 +150,7 @@ class TestProcessingMetadataSchema:
         from app.models.schemas import ProcessingMetadata
 
         processing = ProcessingMetadata(
-            processing_timestamp=datetime.utcnow(),
+            processing_timestamp=datetime.now(UTC),
             embedding_model="sentence-transformers/all-MiniLM-L6-v2",
             embedding_dimension=384,
             chunk_strategy="semantic"
@@ -167,7 +167,7 @@ class TestProcessingMetadataSchema:
 
         with pytest.raises(ValidationError) as exc_info:
             ProcessingMetadata(
-                processing_timestamp=datetime.utcnow(),
+                processing_timestamp=datetime.now(UTC),
                 embedding_model="test-model",
                 embedding_dimension=0,
                 chunk_strategy="semantic"
@@ -191,7 +191,7 @@ class TestQdrantPayloadSchema:
                 filename="test.pdf",
                 content_type="application/pdf",
                 file_size=2048,
-                upload_timestamp=datetime.utcnow()
+                upload_timestamp=datetime.now(UTC)
             ),
             storage=GCSStorageInfo(
                 gcs_uri="gs://bucket/test.pdf",
@@ -206,7 +206,7 @@ class TestQdrantPayloadSchema:
                 chunk_overlap=50
             ),
             processing=ProcessingMetadata(
-                processing_timestamp=datetime.utcnow(),
+                processing_timestamp=datetime.now(UTC),
                 embedding_model="sentence-transformers/all-MiniLM-L6-v2",
                 embedding_dimension=384,
                 chunk_strategy="semantic"
@@ -234,7 +234,7 @@ class TestQdrantPayloadSchema:
                 filename="test.pdf",
                 content_type="application/pdf",
                 file_size=2048,
-                upload_timestamp=datetime.utcnow()
+                upload_timestamp=datetime.now(UTC)
             ),
             storage=GCSStorageInfo(
                 gcs_uri="gs://bucket/test.pdf",
@@ -249,7 +249,7 @@ class TestQdrantPayloadSchema:
                 chunk_overlap=50
             ),
             processing=ProcessingMetadata(
-                processing_timestamp=datetime.utcnow(),
+                processing_timestamp=datetime.now(UTC),
                 embedding_model="test-model",
                 embedding_dimension=384,
                 chunk_strategy="semantic"
@@ -278,7 +278,7 @@ class TestQdrantPayloadSchema:
                 filename="test.pdf",
                 content_type="application/pdf",
                 file_size=2048,
-                upload_timestamp=datetime.utcnow()
+                upload_timestamp=datetime.now(UTC)
             ),
             storage=GCSStorageInfo(
                 gcs_uri="gs://bucket/test.pdf",
@@ -293,7 +293,7 @@ class TestQdrantPayloadSchema:
                 chunk_overlap=50
             ),
             processing=ProcessingMetadata(
-                processing_timestamp=datetime.utcnow(),
+                processing_timestamp=datetime.now(UTC),
                 embedding_model="test-model",
                 embedding_dimension=384,
                 chunk_strategy="semantic"
