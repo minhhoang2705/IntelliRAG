@@ -140,8 +140,9 @@ class VectorDBService:
         limit: int = 10
     ):
         """Search for similar vectors."""
-        return await self.client.search(
+        response = await self.client.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=limit
         )
+        return response.points
