@@ -54,18 +54,18 @@ async def test_classifier_records_duration_metric():
     """Test classifier records classification duration."""
     from app.services.query_router.classifier import QueryClassifier
     from app.api.middleware.metrics import query_classification_duration_seconds
-    
+
     mock_llm = AsyncMock()
     mock_llm.generate = AsyncMock(return_value='{"query_type": "rag", "confidence": 0.9, "reasoning": "Test"}')
-    
+
     classifier = QueryClassifier(llm_client=mock_llm)
-    
-    # Get initial count
-    initial_count = query_classification_duration_seconds._count._value
-    
+
+    # Get initial sum of durations
+    initial_sum = query_classification_duration_seconds._sum._value
+
     # Classify query
     await classifier.classify("Test query")
-    
-    # Verify duration was recorded
-    final_count = query_classification_duration_seconds._count._value
-    assert final_count > initial_count
+
+    # Verify duration was recorded (sum should increase)
+    final_sum = query_classification_duration_seconds._sum._value
+    assert final_sum > initial_sum
