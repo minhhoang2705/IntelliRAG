@@ -9,6 +9,15 @@ Date: 2025-10-17
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
+from app.services.query_router.classifier import QueryType
+
+
+class QueryClassificationSchema(BaseModel):
+    """Schema for query classification results."""
+
+    query_type: QueryType = Field(..., description="Classified query type")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Classification confidence score")
+    reasoning: str = Field(..., min_length=1, description="Reasoning for classification")
 
 
 class QueryRequest(BaseModel):
@@ -36,6 +45,7 @@ class QueryResponse(BaseModel):
     sources: list[SourceDocument] = Field(default_factory=list, description="Retrieved source documents")
     used_rag: bool = Field(..., description="Whether RAG retrieval was used")
     query: str = Field(..., description="Original query")
+    classification: Optional[QueryClassificationSchema] = Field(default=None, description="Query classification")
 
 
 class IngestionRequest(BaseModel):
