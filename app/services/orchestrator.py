@@ -11,6 +11,8 @@ from app.services.embedding import EmbeddingService
 from app.services.vectordb import VectorDBService
 from app.services.llm_client import LLMClientService
 from app.services.rag_pipeline import RAGPipelineService
+from app.services.query_router.classifier import QueryClassifier
+from app.services.query_router_service import QueryRouterService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,14 @@ class OrchestratorService:
             embedding_service=self.embedding_service,
             vectordb_service=self.vectordb_service,
             llm_client=self.llm_client
+        )
+
+        # Initialize query router service
+        classifier = QueryClassifier(llm_client=self.llm_client)
+        self.query_router_service = QueryRouterService(
+            classifier=classifier,
+            vectordb=self.vectordb_service,
+            llm=self.llm_client
         )
 
         logger.info("OrchestratorService initialized successfully")

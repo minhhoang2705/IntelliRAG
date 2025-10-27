@@ -52,3 +52,26 @@ async def test_orchestrator_query(mocker):
     assert result["answer"] == "Python is a programming language"
     assert len(result["sources"]) == 1
     mock_query.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_has_query_router():
+    """Test orchestrator initializes QueryRouterService."""
+    from app.services.orchestrator import OrchestratorService
+
+    orchestrator = OrchestratorService()
+
+    # Assert query router service exists
+    assert orchestrator.query_router_service is not None
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_query_router_is_correct_type():
+    """Test orchestrator initializes correct QueryRouterService type."""
+    from app.services.orchestrator import OrchestratorService
+    from app.services.query_router_service import QueryRouterService
+
+    orchestrator = OrchestratorService()
+
+    # Assert it's the correct type
+    assert isinstance(orchestrator.query_router_service, QueryRouterService)
