@@ -32,6 +32,9 @@ Welcome to the IntelliRAG documentation! This guide helps you navigate all proje
 - **Vector DB**: Qdrant with payload metadata storage
 - **Processing**: LangChain/LangGraph
 - **Serving**: vLLM + KServe on GKE
+- **Monitoring**: Prometheus + Loki + Jaeger
+- **Drift Monitoring**: Evidently
+- **Model & Data Versioning**: MLFlow + DVC
 
 ---
 

@@ -1,7 +1,4 @@
 """Query classification service.
-
-Author: IntelliRAG Team
-Date: 2025-10-25
 """
 
 import json
