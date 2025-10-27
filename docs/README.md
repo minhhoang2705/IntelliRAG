@@ -77,6 +77,37 @@ Welcome to the IntelliRAG documentation! This guide helps you navigate all proje
 
 ---
 
+## 🚧 Phase 2: Agentic RAG & Query Routing
+
+**Implementation Status: ✅ COMPLETE**
+
+**Phase 2 Documentation:**
+- 📄 [Query Router FINAL STATUS](./phase-2/query-router-FINAL-STATUS.md) - ✅ Complete implementation (26/26 tests passing)
+- 📄 [Implementation Progress](./phase-2/query-router-implementation-progress.md) - Initial progress tracking
+- 📄 [Completion Summary](./phase-2/query-router-completion-summary.md) - Day 1-2 completion summary
+- 📄 [Day 2 Progress](./phase-2/query-router-progress-day2.md) - Detailed day 2 implementation log
+
+**Achievements:**
+- ✅ **QueryClassifier**: LLM-based query classification (4 types: RAG, DIRECT, CLARIFICATION, MULTI_HOP)
+- ✅ **LangGraph State Machine**: Conditional routing with error handling
+- ✅ **E2E Testing**: 26 tests covering all flows, errors, and edge cases
+- ✅ **100% Coverage**: Complete test coverage with 2.28:1 test-to-code ratio
+
+**Implementation Files:**
+```
+app/services/query_router/
+├── __init__.py
+├── classifier.py      # QueryClassifier service
+├── prompts.py         # Few-shot classification prompts
+└── graph.py           # LangGraph state machine
+
+tests/unit/
+├── test_query_classifier.py  # 5 tests
+└── test_query_graph.py        # 21 tests (including E2E)
+```
+
+---
+
 ## 📊 Summaries
 
 **Recent Implementation Summaries:**
@@ -182,5 +213,5 @@ When adding new documentation:
 
 ---
 
-**Last Updated**: 2025-10-23  
+**Last Updated**: 2025-10-26  
 **Maintained By**: IntelliRAG Development Team
