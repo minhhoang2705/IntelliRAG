@@ -2,14 +2,14 @@
 
 This module provides the main FastAPI application with RAG endpoints.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.services.orchestrator import OrchestratorService
-from app.models.schemas import QueryRequest, QueryResponse
+from app.models.schemas import QueryRequest, QueryResponse, QueryClassificationSchema
 import logging
 
 # Configure logging
@@ -66,22 +66,31 @@ async def query_endpoint(request: QueryRequest) -> QueryResponse:
     """
     logger.info(f"Received query: {request.query[:50]}...")
 
-    # Execute query via orchestrator
+    # Execute query via orchestrator (query router handles routing automatically)
     result = await orchestrator.query(
         query=request.query,
         collection_name="default",  # TODO: Make configurable
-        use_rag=request.use_rag,
         top_k=request.top_k,
         temperature=request.temperature,
         max_tokens=request.max_tokens
     )
+
+    # Convert classification to schema if present
+    classification_schema = None
+    if result.get("classification"):
+        classification_schema = QueryClassificationSchema(
+            query_type=result["classification"].query_type,
+            confidence=result["classification"].confidence,
+            reasoning=result["classification"].reasoning
+        )
 
     # Format response
     response = QueryResponse(
         answer=result["answer"],
         sources=result["sources"],
         used_rag=request.use_rag,
-        query=request.query
+        query=request.query,
+        classification=classification_schema
     )
 
     logger.info(f"Query completed with {len(result['sources'])} sources")
