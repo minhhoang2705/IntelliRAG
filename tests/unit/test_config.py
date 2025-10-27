@@ -1,6 +1,6 @@
 """Unit tests for configuration management.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-20
 """
 
@@ -83,7 +83,8 @@ class TestSettings:
             test_settings = Settings()
 
             assert test_settings.allowed_file_types == "pdf,docx,txt,csv"
-            assert test_settings.allowed_file_types_list == ["pdf", "docx", "txt", "csv"]
+            assert test_settings.allowed_file_types_list == [
+                "pdf", "docx", "txt", "csv"]
 
     def test_rag_configuration(self):
         """Test RAG configuration parameters."""

@@ -1,7 +1,4 @@
 """Google Cloud Storage service for document storage.
-
-Author: IntelliRAG Team
-Date: 2025-01-22
 """
 
 from gcloud.aio.storage import Storage
@@ -31,7 +28,7 @@ class GCSStorageService:
         """Initialize GCS storage client."""
         self.client = Storage(project=self.project_id)
         self._session_active = True
-        
+
         # Verify bucket exists
         await self.client.get_bucket(self.bucket_name)
 
@@ -63,7 +60,7 @@ class GCSStorageService:
             StorageError: If upload fails
         """
         from app.exceptions import StorageError
-        
+
         if not self._session_active:
             raise StorageError("GCS client not connected")
 
@@ -98,7 +95,7 @@ class GCSStorageService:
             StorageError: If download fails
         """
         from app.exceptions import StorageError
-        
+
         if not self._session_active:
             raise StorageError("GCS client not connected")
 

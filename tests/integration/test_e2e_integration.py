@@ -3,7 +3,7 @@
 This module tests complete workflows: text → embedding → storage → retrieval.
 Tests use real services (SentenceTransformer, Qdrant) without mocking.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 
@@ -15,7 +15,7 @@ import uuid
 @pytest.mark.asyncio
 async def test_e2e_text_to_storage_to_retrieval():
     """Test complete workflow: text → embedding → storage → retrieval.
-    
+
     Integration Test: Verifies full RAG pipeline foundation works end-to-end.
     Expected: Query returns most semantically relevant document.
     """
@@ -32,7 +32,7 @@ async def test_e2e_text_to_storage_to_retrieval():
 
     try:
         # 1. Create collection
-        await vectordb_svc.create_collection(collection_name, 768, "cosine")
+        await vectordb_svc.create_collection(collection_name, 1024, "cosine")
 
         # 2. Generate embeddings for documents
         texts = [doc['text'] for doc in SAMPLE_DOCUMENTS]
@@ -68,7 +68,8 @@ async def test_e2e_text_to_storage_to_retrieval():
         # Debug: Print all scores
         print(f"\nQuery: {query}")
         for i, result in enumerate(results):
-            print(f"Result {i+1}: id={result.payload['id']}, score={result.score:.3f}, text={result.payload['text'][:50]}...")
+            print(
+                f"Result {i+1}: id={result.payload['id']}, score={result.score:.3f}, text={result.payload['text'][:50]}...")
 
         # Top result should be about Python (doc_1)
         top_result = results[0]
@@ -86,7 +87,7 @@ async def test_e2e_text_to_storage_to_retrieval():
 @pytest.mark.asyncio
 async def test_e2e_multilingual_semantic_search():
     """Test multilingual semantic search.
-    
+
     Integration Test: Verifies multilingual model enables cross-language search.
     Expected: English query finds documents in multiple languages with good scores.
     """
@@ -100,7 +101,7 @@ async def test_e2e_multilingual_semantic_search():
     collection_name = f"test_multilingual_{uuid.uuid4()}"
 
     try:
-        await vectordb_svc.create_collection(collection_name, 768, "cosine")
+        await vectordb_svc.create_collection(collection_name, 1024, "cosine")
 
         # Documents in different languages
         docs = [
@@ -142,7 +143,8 @@ async def test_e2e_multilingual_semantic_search():
 
         # Top results should have reasonable similarity (multilingual model)
         # Note: Real-world multilingual similarity varies, so using realistic threshold
-        assert results[0].score > 0.4  # Top result should have decent similarity
+        # Top result should have decent similarity
+        assert results[0].score > 0.4
 
     finally:
         await vectordb_svc.delete_collection(collection_name)
@@ -152,7 +154,7 @@ async def test_e2e_multilingual_semantic_search():
 @pytest.mark.asyncio
 async def test_e2e_concurrent_operations():
     """Test concurrent embedding and storage operations.
-    
+
     Integration Test: Verifies system handles concurrent operations correctly.
     Expected: All concurrent batches process successfully without errors.
     """
@@ -166,12 +168,13 @@ async def test_e2e_concurrent_operations():
     collection_name = f"test_concurrent_{uuid.uuid4()}"
 
     try:
-        await vectordb_svc.create_collection(collection_name, 768, "cosine")
+        await vectordb_svc.create_collection(collection_name, 1024, "cosine")
 
         # Create multiple concurrent tasks
         async def process_batch(batch_id: int, texts: list):
             embeddings = await embedding_svc.embed_batch_async(texts)
-            ids = [batch_id * 1000 + i for i in range(len(texts))]  # Ensure unique integer IDs
+            # Ensure unique integer IDs
+            ids = [batch_id * 1000 + i for i in range(len(texts))]
             payloads = [{"batch": batch_id, "text": t} for t in texts]
 
             await vectordb_svc.upsert_vectors(

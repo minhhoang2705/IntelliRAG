@@ -3,7 +3,7 @@
 This module provides fixtures and configuration for integration tests
 that use real services (Qdrant, embedding models).
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 

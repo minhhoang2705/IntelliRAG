@@ -3,7 +3,7 @@
 This module tests the LLMClientService which interfaces with vLLM
 via OpenAI-compatible API.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 

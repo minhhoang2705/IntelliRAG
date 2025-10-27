@@ -180,7 +180,7 @@ tests/unit/
 - **Processing**: LangChain/LangGraph + Docling
 - **Inference**: vLLM (19x throughput vs Ollama)
 - **Serving**: KServe on GKE
-- **Embeddings**: Sentence Transformers (all-MiniLM-L6-v2)
+- **Embeddings**: BAAI BGE-M3 (1024-dimensional, multilingual, hybrid retrieval)
 - **MLOps**: MLFlow + DVC
 - **Observability**: Prometheus + Grafana + Jaeger + Loki + Evidently
 

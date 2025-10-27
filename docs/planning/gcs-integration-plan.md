@@ -265,7 +265,7 @@ gs://intellirag-raw-documents/
     "chunk_index": 0,  # 0-based index of this chunk
     "total_chunks": 42,  # Total chunks for this document
     "chunk_text_preview": "Q4 2023 Financial Results...",  # First 200 chars
-    "embedding_model": "all-MiniLM-L6-v2",
+    "embedding_model": "BAAI/bge-m3",
     "embedding_dimensions": 384,
 
     # ═══ Custom User Metadata ═══
@@ -363,7 +363,7 @@ filter = {
 """
 Google Cloud Storage service for document storage.
 
-Author: IntelliRAG Team
+
 Date: 2025-01-22
 """
 
@@ -918,7 +918,7 @@ class DocumentLoaderService:
 """
 Unit tests for GCS storage service.
 
-Author: IntelliRAG Team
+
 """
 
 import pytest
@@ -1070,8 +1070,6 @@ class TestGCSStorageService:
 # tests/integration/test_gcs_integration.py
 """
 Integration tests for GCS storage with real GCS bucket.
-
-Author: IntelliRAG Team
 """
 
 import pytest

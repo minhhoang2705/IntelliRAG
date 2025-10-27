@@ -3,7 +3,7 @@
 This module tests the RAGPipelineService which orchestrates
 the retrieval-augmented generation flow.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 
@@ -54,8 +54,9 @@ async def test_rag_pipeline_query_with_rag(mocker):
     )
 
     # Mock embedding service
-    mock_embedding = [0.1] * 768
-    mocker.patch.object(embedding_svc, 'embed_single_async', return_value=mock_embedding)
+    mock_embedding = [0.1] * 1024
+    mocker.patch.object(embedding_svc, 'embed_single_async',
+                        return_value=mock_embedding)
 
     # Mock vector DB search results
     mock_result1 = MagicMock()
@@ -72,7 +73,8 @@ async def test_rag_pipeline_query_with_rag(mocker):
     mocker.patch.object(vectordb_svc, 'search_vectors', mock_search)
 
     # Mock LLM generation
-    mock_generate = AsyncMock(return_value="Python is a high-level programming language created by Guido van Rossum.")
+    mock_generate = AsyncMock(
+        return_value="Python is a high-level programming language created by Guido van Rossum.")
     mocker.patch.object(llm_client, 'generate', mock_generate)
 
     # Execute query

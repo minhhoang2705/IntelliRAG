@@ -76,7 +76,7 @@ The high-level architecture can be seen at this path `./images/high_level_archit
 - **Sentence Transformers** (`/ukplab/sentence-transformers` - Trust: 7.8)
   - Pre-trained embedding models
   - Batch encoding support
-  - `all-MiniLM-L6-v2` (384 dim, recommended)
+  - `BAAI/bge-m3` (1024 dim, multilingual, hybrid retrieval, recommended)
 
 ### **Document Processing**
 - **Docling**: Multi-format parsing (PDF, images)

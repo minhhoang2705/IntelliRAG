@@ -1,7 +1,7 @@
 """Unit tests for EmbeddingService.
 
 This module tests the embedding service for generating multilingual text embeddings
-using the paraphrase-multilingual-mpnet-base-v2 model (768-dimensional vectors).
+using the BAAI/bge-m3 model (1024-dimensional vectors).
 
 Test Coverage:
 - Service instantiation and configuration
@@ -39,11 +39,11 @@ def test_embedding_service_has_model_id_parameter():
 
 
 def test_embedding_service_defaults_to_mpnet():
-    """Test default model is paraphrase-multilingual-mpnet-base-v2."""
+    """Test default model is BAAI/bge-m3."""
     from app.services.embedding import EmbeddingService
 
     service = EmbeddingService()
-    assert service.model_id == "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    assert service.model_id == "BAAI/bge-m3"
 
 
 def test_embedding_service_accepts_device_parameter():
@@ -66,8 +66,8 @@ def test_embedding_service_accepts_max_batch_size():
     """Test EmbeddingService accepts max_batch_size parameter."""
     from app.services.embedding import EmbeddingService
 
-    service = EmbeddingService(max_batch_size=64)
-    assert service.max_batch_size == 64
+    service = EmbeddingService(max_batch_size=32)
+    assert service.max_batch_size == 32
 
 
 def test_embedding_service_defaults_max_batch_size():
@@ -92,7 +92,7 @@ def test_embedding_service_has_get_embedding_dimension():
 
     service = EmbeddingService()
     dimension = service.get_embedding_dimension()
-    assert dimension == 768  # mpnet-base-v2 dimension
+    assert dimension == 1024  # bge-m3 dimension
 
 
 def test_embedding_service_embed_single_returns_vector():
@@ -103,7 +103,7 @@ def test_embedding_service_embed_single_returns_vector():
     vector = service.embed_single("Test sentence")
 
     assert vector is not None
-    assert len(vector) == 768  # mpnet-base-v2 dimension
+    assert len(vector) == 1024  # mpnet-base-v2 dimension
     assert isinstance(vector, list)
     assert all(isinstance(v, float) for v in vector)
 
@@ -115,8 +115,8 @@ def test_embedding_service_embed_single_handles_empty_text():
     service = EmbeddingService()
     vector = service.embed_single("")
 
-    # Should still return 768-d zero vector
-    assert len(vector) == 768
+    # Should still return 1024-d zero vector
+    assert len(vector) == 1024
     assert all(v == 0.0 for v in vector)
 
 
@@ -136,7 +136,7 @@ def test_embedding_service_embed_single_multilingual():
 
     for text in texts:
         vector = service.embed_single(text)
-        assert len(vector) == 768
+        assert len(vector) == 1024
         # Check vector is not all zeros (actual embedding computed)
         assert any(v != 0.0 for v in vector)
 
@@ -196,7 +196,7 @@ def test_embedding_service_embed_batch_returns_vectors():
     vectors = service.embed_batch(texts)
 
     assert len(vectors) == 3
-    assert all(len(v) == 768 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)
     assert isinstance(vectors, list)
     assert all(isinstance(v, list) for v in vectors)
 
@@ -213,7 +213,7 @@ def test_embedding_service_embed_batch_with_gpu():
     vectors = service.embed_batch(texts, use_gpu=True)  # Use GPU for batch
 
     assert len(vectors) == 50
-    assert all(len(v) == 768 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)
     # Verify model returned to CPU after batch
     assert service.model.device.type == "cpu"
 
@@ -230,7 +230,7 @@ def test_embedding_service_embed_batch_respects_max_batch_size():
 
     # Should process in sub-batches but return all vectors
     assert len(vectors) == 100
-    assert all(len(v) == 768 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)
 
 
 def test_embedding_service_embed_batch_normalizes():
@@ -266,7 +266,7 @@ def test_embedding_service_embed_batch_handles_single_item():
     vectors = service.embed_batch(["Single text"])
 
     assert len(vectors) == 1
-    assert len(vectors[0]) == 768
+    assert len(vectors[0]) == 1024
 
 
 def test_embedding_service_embed_batch_logs_metrics():
@@ -293,7 +293,7 @@ def test_embedding_service_embed_batch_processes_large_batch():
     vectors = service.embed_batch(texts)
 
     assert len(vectors) == 200
-    assert all(len(v) == 768 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)
     # Verify all vectors have content (not zeros)
     assert all(any(abs(val) > 0.01 for val in vec) for vec in vectors)
 
@@ -310,7 +310,7 @@ def test_embedding_service_embed_batch_falls_back_to_cpu():
 
     # Should still work (fallback to CPU if needed)
     assert len(vectors) == 2
-    assert all(len(v) == 768 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)
 
 
 @pytest.mark.asyncio
@@ -321,7 +321,7 @@ async def test_embedding_service_embed_single_async():
     service = EmbeddingService()
     vector = await service.embed_single_async("Test sentence")
 
-    assert len(vector) == 768
+    assert len(vector) == 1024
     assert isinstance(vector, list)
 
 
@@ -335,7 +335,7 @@ async def test_embedding_service_embed_batch_async():
     vectors = await service.embed_batch_async(texts)
 
     assert len(vectors) == 3
-    assert all(len(v) == 768 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)
 
 
 @pytest.mark.asyncio
@@ -356,7 +356,7 @@ async def test_embedding_service_async_concurrent_calls():
     vectors = await asyncio.gather(*tasks)
     
     assert len(vectors) == 3
-    assert all(len(v) == 768 for v in vectors)
+    assert all(len(v) == 1024 for v in vectors)
 
 
 @pytest.mark.asyncio
@@ -368,7 +368,7 @@ async def test_embedding_service_async_error_handling():
     
     # Empty text should still work
     vector = await service.embed_single_async("")
-    assert len(vector) == 768
+    assert len(vector) == 1024
     assert all(v == 0.0 for v in vector)
     
     # Empty batch should work

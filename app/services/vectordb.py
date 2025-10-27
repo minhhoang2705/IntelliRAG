@@ -8,7 +8,7 @@ Key Features:
 - Collection lifecycle management
 - Batch vector upsert with rich metadata
 - Similarity search with filtering
-- 768-dimensional vector support (matching EmbeddingService)
+- 1024-dimensional vector support (matching EmbeddingService)
 
 Date: 2025-10-16
 """
@@ -25,7 +25,7 @@ class VectorDBService:
     """Service for managing vector storage in Qdrant.
 
     This service provides async operations for storing and retrieving
-    768-dimensional embeddings in Qdrant vector database.
+    1024-dimensional embeddings in Qdrant vector database.
 
     Attributes:
         url (str): Qdrant server URL
@@ -63,7 +63,7 @@ class VectorDBService:
 
         Args:
             collection_name: Name of the collection to create
-            vector_size: Dimension of vectors (e.g., 768 for mpnet-base-v2)
+            vector_size: Dimension of vectors (e.g., 1024 for BGE-M3)
             distance: Distance metric ("cosine", "dot", or "euclidean")
 
         Returns:

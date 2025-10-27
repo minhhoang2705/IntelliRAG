@@ -16,7 +16,7 @@ Test Coverage:
 Methodology: Test-Driven Development (TDD)
 Target Coverage: >90%
 
-Author: IntelliRAG Team
+
 Date: 2025-01-23
 """
 
@@ -151,14 +151,14 @@ class TestProcessingMetadataSchema:
 
         processing = ProcessingMetadata(
             processing_timestamp=datetime.now(UTC),
-            embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-            embedding_dimension=384,
+            embedding_model="BAAI/bge-m3",
+            embedding_dimension=1024,
             chunk_strategy="semantic"
         )
 
         assert isinstance(processing.processing_timestamp, datetime)
-        assert processing.embedding_model == "sentence-transformers/all-MiniLM-L6-v2"
-        assert processing.embedding_dimension == 384
+        assert processing.embedding_model == "BAAI/bge-m3"
+        assert processing.embedding_dimension == 1024
         assert processing.chunk_strategy == "semantic"
 
     def test_processing_metadata_embedding_dimension_must_be_positive(self):
@@ -207,8 +207,8 @@ class TestQdrantPayloadSchema:
             ),
             processing=ProcessingMetadata(
                 processing_timestamp=datetime.now(UTC),
-                embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-                embedding_dimension=384,
+                embedding_model="BAAI/bge-m3",
+                embedding_dimension=1024,
                 chunk_strategy="semantic"
             ),
             collection_id="default",
@@ -218,7 +218,7 @@ class TestQdrantPayloadSchema:
         assert payload.document.filename == "test.pdf"
         assert payload.storage.gcs_bucket == "bucket"
         assert payload.chunk.chunk_index == 0
-        assert payload.processing.embedding_dimension == 384
+        assert payload.processing.embedding_dimension == 1024
         assert payload.collection_id == "default"
         assert "finance" in payload.tags
 
@@ -251,7 +251,7 @@ class TestQdrantPayloadSchema:
             processing=ProcessingMetadata(
                 processing_timestamp=datetime.now(UTC),
                 embedding_model="test-model",
-                embedding_dimension=384,
+                embedding_dimension=1024,
                 chunk_strategy="semantic"
             ),
             collection_id="default"
@@ -295,7 +295,7 @@ class TestQdrantPayloadSchema:
             processing=ProcessingMetadata(
                 processing_timestamp=datetime.now(UTC),
                 embedding_model="test-model",
-                embedding_dimension=384,
+                embedding_dimension=1024,
                 chunk_strategy="semantic"
             ),
             collection_id="default"

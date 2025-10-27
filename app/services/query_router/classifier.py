@@ -3,9 +3,15 @@
 
 import json
 import logging
+import time
 from enum import Enum
 from pydantic import BaseModel, Field
 from app.services.query_router.prompts import build_classification_prompt
+from app.api.middleware.metrics import (
+    query_classification_total,
+    query_classification_confidence,
+    query_classification_duration_seconds
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +49,9 @@ class QueryClassifier:
         Returns:
             QueryClassification with type, confidence, and reasoning
         """
+        # Start timing for metrics
+        start_time = time.time()
+
         # Build prompt with few-shot examples
         prompt = build_classification_prompt(query)
 
@@ -57,8 +66,18 @@ class QueryClassifier:
         data = json.loads(response)
 
         # Create classification object
-        return QueryClassification(
+        classification = QueryClassification(
             query_type=QueryType(data["query_type"]),
             confidence=data["confidence"],
             reasoning=data["reasoning"]
         )
+
+        # Record metrics
+        duration = time.time() - start_time
+        query_classification_duration_seconds.observe(duration)
+        query_classification_confidence.observe(classification.confidence)
+        query_classification_total.labels(
+            query_type=classification.query_type.value
+        ).inc()
+
+        return classification

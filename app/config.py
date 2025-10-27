@@ -1,7 +1,4 @@
 """Application configuration management.
-
-Author: IntelliRAG Team
-Date: 2025-10-20
 """
 
 from typing import List
@@ -23,13 +20,18 @@ class Settings(BaseSettings):
     # Google Cloud Storage (GCS) Configuration
     gcs_project_id: str = "intellirag-project"
     gcs_bucket_name: str = "intellirag-raw-documents"
-    gcs_credentials_path: str = Field(default="", description="Path to GCS service account JSON file")
-    gcs_use_default_credentials: bool = Field(default=True, description="Use default GCP credentials")
+    gcs_credentials_path: str = Field(
+        default="", description="Path to GCS service account JSON file")
+    gcs_use_default_credentials: bool = Field(
+        default=True, description="Use default GCP credentials")
 
     # GCS Storage Settings
-    gcs_upload_timeout: int = Field(default=300, description="Upload timeout in seconds")
-    gcs_download_timeout: int = Field(default=300, description="Download timeout in seconds")
-    gcs_max_retries: int = Field(default=3, description="Maximum retry attempts for GCS operations")
+    gcs_upload_timeout: int = Field(
+        default=300, description="Upload timeout in seconds")
+    gcs_download_timeout: int = Field(
+        default=300, description="Download timeout in seconds")
+    gcs_max_retries: int = Field(
+        default=3, description="Maximum retry attempts for GCS operations")
 
     # PostgreSQL Configuration (REMOVED - Replaced by Qdrant Payloads)
     # All metadata now stored in Qdrant payloads. See app/models/schemas.py
@@ -46,7 +48,8 @@ class Settings(BaseSettings):
     vllm_model: str = "Qwen/Qwen3-0.6B"
 
     # Embedding Model Configuration
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_dimension: int = 1024
     embedding_device: str = "cpu"
     embedding_batch_size: int = 32
 

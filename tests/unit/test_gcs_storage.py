@@ -1,6 +1,6 @@
 """Unit tests for GCS storage service.
 
-Author: IntelliRAG Team
+
 Date: 2025-01-22
 """
 

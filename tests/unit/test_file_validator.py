@@ -1,6 +1,6 @@
 """Unit tests for FileValidator service.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-21
 """
 

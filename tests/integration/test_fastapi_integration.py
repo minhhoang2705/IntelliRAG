@@ -3,7 +3,7 @@
 This module tests the FastAPI application with real Qdrant, vLLM,
 and SentenceTransformers without mocking.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-18
 """
 
@@ -115,7 +115,7 @@ async def test_query_endpoint_with_rag(check_vllm):
         except:
             pass
 
-        await vectordb_svc.create_collection(collection_name, 768, "cosine")
+        await vectordb_svc.create_collection(collection_name, 1024, "cosine")
         texts = [doc['text'] for doc in SAMPLE_DOCUMENTS]
         embeddings = await embedding_svc.embed_batch_async(texts)
         ids = list(range(len(SAMPLE_DOCUMENTS)))

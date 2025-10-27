@@ -4,7 +4,7 @@ This module tests VectorDBService with actual Qdrant instance,
 not mocked. Tests include connection, collection management, vector operations,
 and similarity search.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 
@@ -16,7 +16,7 @@ import uuid
 @pytest.mark.asyncio
 async def test_vectordb_connects_to_real_qdrant():
     """Test connection to actual Qdrant instance.
-    
+
     Integration Test: Verifies VectorDBService can connect to real Qdrant.
     Expected: Client initializes and can query Qdrant.
     """
@@ -37,7 +37,7 @@ async def test_vectordb_connects_to_real_qdrant():
 @pytest.mark.asyncio
 async def test_vectordb_create_collection_real():
     """Test creating actual collection in Qdrant.
-    
+
     Integration Test: Verifies real collection creation in Qdrant.
     Expected: Collection is created successfully and exists.
     """
@@ -51,7 +51,7 @@ async def test_vectordb_create_collection_real():
         # Create collection
         success = await service.create_collection(
             collection_name=collection_name,
-            vector_size=768,
+            vector_size=1024,
             distance="cosine"
         )
 
@@ -74,7 +74,7 @@ async def test_vectordb_create_collection_real():
 @pytest.mark.asyncio
 async def test_vectordb_collection_lifecycle():
     """Test full collection lifecycle.
-    
+
     Integration Test: Verifies create, query, delete operations work.
     Expected: Full lifecycle works without errors.
     """
@@ -84,7 +84,7 @@ async def test_vectordb_collection_lifecycle():
     collection_name = f"test_lifecycle_{uuid.uuid4()}"
 
     # 1. Create
-    await service.create_collection(collection_name, 768, "cosine")
+    await service.create_collection(collection_name, 1024, "cosine")
     assert await service.collection_exists(collection_name) is True
 
     # 2. Get info
@@ -104,7 +104,7 @@ async def test_vectordb_collection_lifecycle():
 @pytest.mark.asyncio
 async def test_vectordb_upsert_real_vectors():
     """Test upserting vectors to real Qdrant.
-    
+
     Integration Test: Verifies vector upsert with real Qdrant.
     Expected: Vectors are stored successfully.
     """
@@ -116,10 +116,10 @@ async def test_vectordb_upsert_real_vectors():
 
     try:
         # Create collection
-        await service.create_collection(collection_name, 768, "cosine")
+        await service.create_collection(collection_name, 1024, "cosine")
 
         # Generate test vectors
-        vectors = [np.random.rand(768).tolist() for _ in range(10)]
+        vectors = [np.random.rand(1024).tolist() for _ in range(10)]
         payloads = [{"text": f"Document {i}", "index": i} for i in range(10)]
         ids = [i for i in range(10)]  # Use integers for Qdrant compatibility
 
@@ -145,7 +145,7 @@ async def test_vectordb_upsert_real_vectors():
 @pytest.mark.asyncio
 async def test_vectordb_search_real():
     """Test similarity search with real Qdrant.
-    
+
     Integration Test: Verifies similarity search returns relevant results.
     Expected: Exact match has highest score, results sorted by score.
     """
@@ -158,14 +158,14 @@ async def test_vectordb_search_real():
 
     try:
         # Create collection
-        await service.create_collection(collection_name, 768, "cosine")
+        await service.create_collection(collection_name, 1024, "cosine")
 
         # Create and upsert test vectors
-        base_vector = np.random.rand(768)
+        base_vector = np.random.rand(1024)
         vectors = [
             base_vector.tolist(),  # Exact match
-            (base_vector + np.random.rand(768) * 0.1).tolist(),  # Very similar
-            np.random.rand(768).tolist(),  # Random (dissimilar)
+            (base_vector + np.random.rand(1024) * 0.1).tolist(),  # Very similar
+            np.random.rand(1024).tolist(),  # Random (dissimilar)
         ]
 
         payloads = [

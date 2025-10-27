@@ -52,7 +52,7 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
 - **Schema Design**: All metadata stored in Qdrant payloads:
   ```python
   {
-    "vector": [0.1, 0.2, ...],  # 384-dim embedding
+    "vector": [0.1, 0.2, ...],  # 1024-dim embedding
     "payload": {
       "document_id": "uuid",
       "collection_id": "uuid",
@@ -92,13 +92,14 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
 
 ### 4. Embeddings
 
-#### Sentence Transformers
-- **Model**: `all-MiniLM-L6-v2`
-- **Dimensions**: 384
+#### BAAI BGE-M3 Embeddings
+- **Model**: `BAAI/bge-m3`
+- **Dimensions**: 1024
 - **Benefits**:
-  - Fast inference
-  - Good balance of quality and speed
-  - Pre-trained on diverse datasets
+  - Multilingual support (100+ languages)
+  - Hybrid retrieval (dense + sparse)
+  - Long context support (up to 8192 tokens)
+  - State-of-the-art performance
 
 ### 5. LLM Inference
 

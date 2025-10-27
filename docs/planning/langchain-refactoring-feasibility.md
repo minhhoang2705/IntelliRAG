@@ -142,7 +142,7 @@ All components below are **REQUIRED** for project completion:
     "uploaded_at": "2024-01-01T00:00:00Z",
     "processed_at": "2024-01-01T00:05:30Z",
     "chunk_count": 42,
-    "embedding_model": "all-MiniLM-L6-v2",
+    "embedding_model": "BAAI/bge-m3",
 
     # Custom Metadata (user-provided)
     "custom_metadata": {
