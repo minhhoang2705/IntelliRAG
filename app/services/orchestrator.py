@@ -65,40 +65,31 @@ class OrchestratorService:
         self,
         query: str,
         collection_name: str,
-        use_rag: bool = True,
         top_k: int = 5,
         temperature: float = 0.7,
         max_tokens: int = 512
     ) -> dict:
-        """Execute query using RAG pipeline or direct LLM.
+        """Execute query using QueryRouterService for intelligent routing.
 
         Args:
             query: User query text
             collection_name: Vector DB collection to search
-            use_rag: Whether to use RAG retrieval (if False, direct LLM)
             top_k: Number of documents to retrieve
             temperature: LLM sampling temperature
             max_tokens: Maximum tokens to generate
 
         Returns:
-            Dictionary with 'answer' and 'sources' keys
+            Dictionary with 'answer', 'sources', and 'classification' keys
         """
-        if use_rag:
-            return await self.rag_pipeline.query_with_rag(
-                query=query,
-                collection_name=collection_name,
-                top_k=top_k,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-        else:
-            # Direct LLM query without RAG
-            answer = await self.llm_client.generate(
-                prompt=query,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            return {
-                "answer": answer,
-                "sources": []
-            }
+        # Use QueryRouterService for intelligent routing
+        result = await self.query_router_service.route_query(
+            query=query,
+            collection_name=collection_name
+        )
+
+        # Transform result to maintain backward compatibility
+        return {
+            "answer": result.get("response", ""),
+            "sources": [],  # TODO: Extract from context
+            "classification": result.get("classification")
+        }

@@ -30,18 +30,26 @@ async def test_orchestrator_initialization():
 
 @pytest.mark.asyncio
 async def test_orchestrator_query(mocker):
-    """Test orchestrator executes query via RAG pipeline."""
+    """Test orchestrator executes query via QueryRouter."""
     from app.services.orchestrator import OrchestratorService
+    from app.services.query_router.classifier import QueryType, QueryClassification
 
     orchestrator = OrchestratorService()
 
-    # Mock the RAG pipeline query method
+    # Mock the query router service
     mock_result = {
-        "answer": "Python is a programming language",
-        "sources": [{"text": "Python is...", "score": 0.95, "id": "1"}]
+        "query": "What is Python?",
+        "classification": QueryClassification(
+            query_type=QueryType.DIRECT,
+            confidence=0.95,
+            reasoning="General knowledge"
+        ),
+        "response": "Python is a programming language",
+        "context": None,
+        "error": None
     }
-    mock_query = AsyncMock(return_value=mock_result)
-    mocker.patch.object(orchestrator.rag_pipeline, 'query_with_rag', mock_query)
+    mock_route = AsyncMock(return_value=mock_result)
+    mocker.patch.object(orchestrator.query_router_service, 'route_query', mock_route)
 
     result = await orchestrator.query(
         query="What is Python?",
@@ -50,8 +58,8 @@ async def test_orchestrator_query(mocker):
     )
 
     assert result["answer"] == "Python is a programming language"
-    assert len(result["sources"]) == 1
-    mock_query.assert_called_once()
+    assert "classification" in result
+    mock_route.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -75,3 +83,43 @@ async def test_orchestrator_query_router_is_correct_type():
 
     # Assert it's the correct type
     assert isinstance(orchestrator.query_router_service, QueryRouterService)
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_query_uses_router(mocker):
+    """Test orchestrator query() uses QueryRouterService."""
+    from app.services.orchestrator import OrchestratorService
+    from app.services.query_router.classifier import QueryType, QueryClassification
+
+    orchestrator = OrchestratorService()
+
+    # Mock the query router service
+    mock_result = {
+        "query": "What is Python?",
+        "classification": QueryClassification(
+            query_type=QueryType.DIRECT,
+            confidence=0.95,
+            reasoning="General knowledge question"
+        ),
+        "response": "Python is a programming language",
+        "context": None,
+        "error": None
+    }
+    mock_route_query = AsyncMock(return_value=mock_result)
+    mocker.patch.object(orchestrator.query_router_service, 'route_query', mock_route_query)
+
+    # Execute query
+    result = await orchestrator.query(
+        query="What is Python?",
+        collection_name="docs"
+    )
+
+    # Verify query router was called
+    mock_route_query.assert_called_once_with(
+        query="What is Python?",
+        collection_name="docs"
+    )
+    
+    # Verify result includes classification
+    assert "classification" in result
+    assert result["classification"].query_type == QueryType.DIRECT
