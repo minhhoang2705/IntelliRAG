@@ -3,7 +3,7 @@
 This module tests the OrchestratorService which coordinates
 all RAG services and provides a unified interface.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 
@@ -49,12 +49,12 @@ async def test_orchestrator_query(mocker):
         "error": None
     }
     mock_route = AsyncMock(return_value=mock_result)
-    mocker.patch.object(orchestrator.query_router_service, 'route_query', mock_route)
+    mocker.patch.object(orchestrator.query_router_service,
+                        'route_query', mock_route)
 
     result = await orchestrator.query(
         query="What is Python?",
-        collection_name="test_docs",
-        use_rag=True
+        collection_name="test_docs"
     )
 
     assert result["answer"] == "Python is a programming language"
@@ -106,7 +106,8 @@ async def test_orchestrator_query_uses_router(mocker):
         "error": None
     }
     mock_route_query = AsyncMock(return_value=mock_result)
-    mocker.patch.object(orchestrator.query_router_service, 'route_query', mock_route_query)
+    mocker.patch.object(orchestrator.query_router_service,
+                        'route_query', mock_route_query)
 
     # Execute query
     result = await orchestrator.query(
@@ -119,7 +120,7 @@ async def test_orchestrator_query_uses_router(mocker):
         query="What is Python?",
         collection_name="docs"
     )
-    
+
     # Verify result includes classification
     assert "classification" in result
     assert result["classification"].query_type == QueryType.DIRECT
