@@ -217,7 +217,7 @@ import time
 from typing import Callable
 
 
-# Define metrics
+# HTTP Metrics
 http_requests_total = Counter(
     'http_requests_total',
     'Total HTTP requests',
@@ -231,10 +231,36 @@ http_request_duration_seconds = Histogram(
     buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
 )
 
+# Query Router Metrics (LangGraph-based)
+query_classification_total = Counter(
+    'query_classification_total',
+    'Total number of query classifications',
+    ['query_type']  # 'rag', 'direct', 'clarification', 'multi_hop'
+)
+
+query_classification_confidence = Histogram(
+    'query_classification_confidence',
+    'Confidence scores for query classifications',
+    buckets=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0]
+)
+
+query_classification_duration_seconds = Histogram(
+    'query_classification_duration_seconds',
+    'Time taken to classify queries',
+    buckets=[0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
+)
+
+query_router_decisions_total = Counter(
+    'query_router_decisions_total',
+    'Total routing decisions by type',
+    ['decision']  # 'rag', 'direct', 'clarification', 'multi_hop'
+)
+
+# RAG Pipeline Metrics
 rag_query_duration_seconds = Histogram(
     'rag_query_duration_seconds',
     'RAG query processing time',
-    ['stage'],
+    ['stage'],  # 'embedding', 'retrieval', 'generation'
     buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
 )
 
@@ -244,12 +270,14 @@ rag_retrieval_results = Histogram(
     buckets=[0, 1, 3, 5, 10, 20, 50]
 )
 
+# LLM Metrics
 llm_token_count = Counter(
     'llm_token_count',
     'Total tokens processed by LLM',
-    ['model', 'type']  # type: input/output
+    ['model', 'type']  # type: 'input' or 'output'
 )
 
+# Infrastructure Metrics
 gpu_utilization = Gauge(
     'gpu_utilization_percent',
     'GPU utilization percentage',
@@ -265,7 +293,7 @@ vector_db_operations = Counter(
 embedding_cache_hits = Counter(
     'embedding_cache_hits_total',
     'Embedding cache hits',
-    ['hit']  # hit: true/false
+    ['hit']  # 'true' or 'false'
 )
 
 
@@ -296,11 +324,58 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
 
 
 async def metrics_endpoint():
-    """Expose Prometheus metrics."""
+    """Expose Prometheus metrics at /metrics endpoint."""
     return Response(
         content=generate_latest(),
-        media_type='text/plain'
+        media_type='text/plain; version=0.0.4; charset=utf-8'
     )
+```
+
+**Query Classifier Instrumentation** (`app/services/query_router/classifier.py`):
+```python
+"""Query classification with metrics instrumentation."""
+import time
+import json
+from app.api.middleware.metrics import (
+    query_classification_total,
+    query_classification_confidence,
+    query_classification_duration_seconds,
+)
+
+
+class QueryClassifier:
+    """LangGraph-based query classifier with observability."""
+
+    async def classify(self, query: str) -> QueryClassification:
+        """Classify query with metrics recording."""
+        # Start timing
+        start_time = time.time()
+
+        # Build prompt and classify
+        prompt = build_classification_prompt(query)
+        response = await self.llm_client.generate(
+            prompt=prompt,
+            temperature=0.1,
+            max_tokens=150
+        )
+
+        # Parse classification result
+        data = json.loads(response)
+        classification = QueryClassification(
+            query_type=QueryType(data["query_type"]),
+            confidence=data["confidence"],
+            reasoning=data["reasoning"]
+        )
+
+        # Record metrics
+        duration = time.time() - start_time
+        query_classification_duration_seconds.observe(duration)
+        query_classification_confidence.observe(classification.confidence)
+        query_classification_total.labels(
+            query_type=classification.query_type.value
+        ).inc()
+
+        return classification
 ```
 
 **RAG Pipeline Instrumentation** (`app/services/rag_pipeline.py`):

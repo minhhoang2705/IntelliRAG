@@ -7,14 +7,15 @@ Date: 2025-10-17
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from app.services.orchestrator import OrchestratorService
 from app.models.schemas import QueryRequest, QueryResponse, QueryClassificationSchema
-import logging
+from prometheus_client import generate_latest
+from app.core.logging import setup_logging, get_logger
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure structured logging
+setup_logging(level="INFO")
+logger = get_logger(__name__)
 
 # Initialize orchestrator (singleton)
 orchestrator = None
@@ -52,6 +53,15 @@ app = FastAPI(
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "IntelliRAG"}
+
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    """Expose Prometheus metrics."""
+    return Response(
+        content=generate_latest(),
+        media_type='text/plain; version=0.0.4; charset=utf-8'
+    )
 
 
 @app.post("/api/v1/query", response_model=QueryResponse)
