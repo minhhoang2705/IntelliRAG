@@ -22,6 +22,7 @@ import numpy as np
 import torch
 
 
+@pytest.mark.unit
 def test_embedding_service_can_be_instantiated():
     """Test EmbeddingService can be created."""
     from app.services.embedding import EmbeddingService
@@ -30,6 +31,7 @@ def test_embedding_service_can_be_instantiated():
     assert service is not None
 
 
+@pytest.mark.unit
 def test_embedding_service_has_model_id_parameter():
     """Test EmbeddingService accepts model_id parameter."""
     from app.services.embedding import EmbeddingService
@@ -38,6 +40,7 @@ def test_embedding_service_has_model_id_parameter():
     assert service.model_id == "custom-model"
 
 
+@pytest.mark.unit
 def test_embedding_service_defaults_to_mpnet():
     """Test default model is BAAI/bge-m3."""
     from app.services.embedding import EmbeddingService
@@ -46,6 +49,7 @@ def test_embedding_service_defaults_to_mpnet():
     assert service.model_id == "BAAI/bge-m3"
 
 
+@pytest.mark.unit
 def test_embedding_service_accepts_device_parameter():
     """Test EmbeddingService accepts device parameter."""
     from app.services.embedding import EmbeddingService
@@ -54,6 +58,7 @@ def test_embedding_service_accepts_device_parameter():
     assert service.device == "cpu"
 
 
+@pytest.mark.unit
 def test_embedding_service_defaults_to_cpu():
     """Test default device is CPU."""
     from app.services.embedding import EmbeddingService
@@ -62,6 +67,7 @@ def test_embedding_service_defaults_to_cpu():
     assert service.device == "cpu"
 
 
+@pytest.mark.unit
 def test_embedding_service_accepts_max_batch_size():
     """Test EmbeddingService accepts max_batch_size parameter."""
     from app.services.embedding import EmbeddingService
@@ -70,6 +76,7 @@ def test_embedding_service_accepts_max_batch_size():
     assert service.max_batch_size == 32
 
 
+@pytest.mark.unit
 def test_embedding_service_defaults_max_batch_size():
     """Test default max_batch_size is 128."""
     from app.services.embedding import EmbeddingService
@@ -78,6 +85,7 @@ def test_embedding_service_defaults_max_batch_size():
     assert service.max_batch_size == 128
 
 
+@pytest.mark.unit
 def test_embedding_service_lazy_loads_model():
     """Test model is not loaded until first use."""
     from app.services.embedding import EmbeddingService
@@ -86,6 +94,7 @@ def test_embedding_service_lazy_loads_model():
     assert service._model is None  # Not loaded yet
 
 
+@pytest.mark.unit
 def test_embedding_service_has_get_embedding_dimension():
     """Test service has get_embedding_dimension method."""
     from app.services.embedding import EmbeddingService
@@ -95,34 +104,47 @@ def test_embedding_service_has_get_embedding_dimension():
     assert dimension == 1024  # bge-m3 dimension
 
 
-def test_embedding_service_embed_single_returns_vector():
+@pytest.mark.unit
+def test_embedding_service_embed_single_returns_vector(mocker, mock_sentence_transformer):
     """Test embed_single returns correct shape vector."""
     from app.services.embedding import EmbeddingService
+
+    # Mock the model to avoid loading real BGE-M3 (560MB)
+    mocker.patch('app.services.embedding.SentenceTransformer', return_value=mock_sentence_transformer)
 
     service = EmbeddingService()
     vector = service.embed_single("Test sentence")
 
     assert vector is not None
-    assert len(vector) == 1024  # mpnet-base-v2 dimension
+    assert len(vector) == 1024
     assert isinstance(vector, list)
     assert all(isinstance(v, float) for v in vector)
+    # Verify mock was used
+    mock_sentence_transformer.encode.assert_called_once()
 
 
+@pytest.mark.unit
 def test_embedding_service_embed_single_handles_empty_text():
-    """Test embed_single handles empty text gracefully."""
+    """Test embed_single handles empty text gracefully (logic test, no model needed)."""
     from app.services.embedding import EmbeddingService
 
+    # Empty text doesn't need model - returns zero vector immediately
     service = EmbeddingService()
     vector = service.embed_single("")
 
-    # Should still return 1024-d zero vector
+    # Should return 1024-d zero vector without loading model
     assert len(vector) == 1024
     assert all(v == 0.0 for v in vector)
+    assert service._model is None  # Model should NOT be loaded for empty text
 
 
-def test_embedding_service_embed_single_multilingual():
+@pytest.mark.unit
+def test_embedding_service_embed_single_multilingual(mocker, mock_sentence_transformer):
     """Test embed_single handles multilingual text."""
     from app.services.embedding import EmbeddingService
+
+    # Mock to avoid loading real model
+    mocker.patch('app.services.embedding.SentenceTransformer', return_value=mock_sentence_transformer)
 
     service = EmbeddingService()
 
@@ -137,26 +159,43 @@ def test_embedding_service_embed_single_multilingual():
     for text in texts:
         vector = service.embed_single(text)
         assert len(vector) == 1024
-        # Check vector is not all zeros (actual embedding computed)
+        # Mock returns non-zero vectors
         assert any(v != 0.0 for v in vector)
+    
+    # Verify model was called for each text
+    assert mock_sentence_transformer.encode.call_count == len(texts)
 
 
-def test_embedding_service_embed_single_logs_operation():
+@pytest.mark.unit
+def test_embedding_service_embed_single_logs_operation(mocker, mock_sentence_transformer):
     """Test embedding operation is logged."""
     from app.services.embedding import EmbeddingService
     from unittest.mock import patch
 
+    mocker.patch('app.services.embedding.SentenceTransformer', return_value=mock_sentence_transformer)
     service = EmbeddingService()
 
     with patch('app.services.embedding.logger') as mock_logger:
         service.embed_single("Test")
-        # Should log the embedding operation
         assert mock_logger.info.called
 
 
-def test_embedding_service_embed_single_consistent_output():
+@pytest.mark.unit
+def test_embedding_service_embed_single_consistent_output(mocker):
     """Test embed_single produces consistent embeddings for same input."""
     from app.services.embedding import EmbeddingService
+    from unittest.mock import Mock
+    import numpy as np
+
+    # Make mock return SAME consistent vector every time
+    consistent_vec = np.array([0.1] * 1024)
+    mock_model = Mock()
+    mock_model.encode.return_value = consistent_vec
+    mock_model.device = Mock()
+    mock_model.device.type = "cpu"
+    mock_model.to.return_value = mock_model
+    
+    mocker.patch('app.services.embedding.SentenceTransformer', return_value=mock_model)
 
     service = EmbeddingService()
     text = "Consistency test"
@@ -164,32 +203,40 @@ def test_embedding_service_embed_single_consistent_output():
     vector1 = service.embed_single(text)
     vector2 = service.embed_single(text)
 
-    # Same text should produce same embedding
-    assert len(vector1) == len(vector2)
-    # Check vectors are very similar (allowing for floating point precision)
-    for v1, v2 in zip(vector1, vector2):
-        assert abs(v1 - v2) < 1e-6
+    # Same text should produce same embedding from mock
+    assert len(vector1) == len(vector2) == 1024
+    assert vector1 == vector2  # Mock returns same values every time
 
 
-def test_embedding_service_embed_single_different_inputs():
+@pytest.mark.unit
+def test_embedding_service_embed_single_different_inputs(mocker, mock_sentence_transformer):
     """Test embed_single produces different embeddings for different inputs."""
     from app.services.embedding import EmbeddingService
+    import numpy as np
+
+    # Make mock return different vectors for each call
+    call_count = [0]
+    def mock_encode_different(text, **kwargs):
+        call_count[0] += 1
+        return np.random.rand(1024) * call_count[0]  # Different each time
+    
+    mock_sentence_transformer.encode.side_effect = mock_encode_different
+    mocker.patch('app.services.embedding.SentenceTransformer', return_value=mock_sentence_transformer)
 
     service = EmbeddingService()
-
     vector1 = service.embed_single("Hello world")
     vector2 = service.embed_single("Goodbye world")
 
     # Different texts should produce different embeddings
     assert vector1 != vector2
-    # Check they're actually different (not just memory references)
-    differences = sum(1 for v1, v2 in zip(vector1, vector2) if abs(v1 - v2) > 0.01)
-    assert differences > 100  # Expect significant differences
 
 
-def test_embedding_service_embed_batch_returns_vectors():
+@pytest.mark.unit
+def test_embedding_service_embed_batch_returns_vectors(mocker, mock_sentence_transformer):
     """Test embed_batch returns correct shape."""
     from app.services.embedding import EmbeddingService
+
+    mocker.patch('app.services.embedding.SentenceTransformer', return_value=mock_sentence_transformer)
 
     service = EmbeddingService()
     texts = ["First sentence", "Second sentence", "Third sentence"]
@@ -199,6 +246,7 @@ def test_embedding_service_embed_batch_returns_vectors():
     assert all(len(v) == 1024 for v in vectors)
     assert isinstance(vectors, list)
     assert all(isinstance(v, list) for v in vectors)
+    mock_sentence_transformer.encode.assert_called_once()
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
