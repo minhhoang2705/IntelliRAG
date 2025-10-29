@@ -1,7 +1,7 @@
 """Semantic chunking service using LangChain.
 
 This module provides SemanticChunkerService which uses LangChain's
-SemanticChunker for intelligent text splitting based on semantic meaning.
+SemanticChunker for text splitting based on semantic meaning.
 
 Date: 2025-10-25
 """
@@ -74,7 +74,8 @@ class SemanticChunkerService:
             breakpoint_threshold_type=breakpoint_type
         )
 
-        logger.info(f"Initialized SemanticChunkerService with breakpoint_type={breakpoint_type}")
+        logger.info(
+            f"Initialized SemanticChunkerService with breakpoint_type={breakpoint_type}")
 
     async def chunk_documents(self, documents: List[Document]) -> List[Document]:
         """Chunk documents semantically.
@@ -118,6 +119,7 @@ class SemanticChunkerService:
 
                 all_chunks.append(chunk_doc)
 
-        logger.info(f"Created {len(all_chunks)} semantic chunks from {len(documents)} documents")
+        logger.info(
+            f"Created {len(all_chunks)} semantic chunks from {len(documents)} documents")
 
         return all_chunks

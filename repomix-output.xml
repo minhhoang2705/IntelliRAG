@@ -2388,11 +2388,11 @@ from app.exceptions import InvalidFileError
 logger = logging.getLogger(__name__)
 
 
-class FileValidator:
+class FileValidatorService:
     """Validates files before processing to prevent security vulnerabilities."""
 
     def __init__(self, max_file_size_mb: int = 50):
-        """Initialize FileValidator.
+        """Initialize FileValidatorService.
         
         Args:
             max_file_size_mb: Maximum allowed file size in megabytes (default: 50 MB)
@@ -9699,7 +9699,7 @@ ALLOWED_MIME_TYPES = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 }
 
-class FileValidator:
+class FileValidatorService:
     def __init__(self, max_size_mb: int = 50):
         self.max_size_bytes = max_size_mb * 1024 * 1024
     
@@ -9795,7 +9795,7 @@ class FileValidator:
 ```python
 class IngestionService:
     def __init__(self, ...):
-        self.file_validator = FileValidator(max_size_mb=settings.max_file_size_mb)
+        self.file_validator = FileValidatorService(max_size_mb=settings.max_file_size_mb)
     
     async def ingest_document(
         self,
@@ -11312,7 +11312,7 @@ app = FastAPI(
   - [ ] Add comprehensive error handling
 
 - [ ] **File Validation**
-  - [ ] Create FileValidator class
+  - [ ] Create FileValidatorService class
   - [ ] Implement MIME type verification (python-magic)
   - [ ] Add filename sanitization
   - [ ] Implement size validation
@@ -11357,7 +11357,7 @@ app = FastAPI(
 - [ ] **Unit Tests**
   - [ ] DatabaseService tests
   - [ ] MinIOStorageService tests
-  - [ ] FileValidator tests
+  - [ ] FileValidatorService tests
   - [ ] IngestionService tests
 
 - [ ] **Integration Tests**
@@ -11396,7 +11396,7 @@ uv add --dev pytest-asyncio pytest-timeout
 
 1. **Immediate (Before Phase 5 Implementation):**
    - Switch to aioboto3
-   - Add FileValidator
+   - Add FileValidatorService
    - Update database schema with missing indexes
 
 2. **During Phase 5 Implementation:**
@@ -13060,7 +13060,7 @@ class TestExceptions:
 </file>
 
 <file path="tests/unit/test_file_validator.py">
-"""Unit tests for FileValidator service.
+"""Unit tests for FileValidatorService service.
 
 Author: IntelliRAG Team
 Date: 2025-10-21
@@ -13070,13 +13070,13 @@ import pytest
 
 
 class TestFileValidator:
-    """Test suite for FileValidator service."""
+    """Test suite for FileValidatorService service."""
 
     def test_validate_file_size_within_limit(self):
         """Test that file size within limit is valid."""
-        from app.services.file_validator import FileValidator
+        from app.services.file_validator import FileValidatorService
 
-        validator = FileValidator()
+        validator = FileValidatorService()
 
         # 10 MB file (well within typical 50 MB limit)
         file_size = 10 * 1024 * 1024
@@ -13086,10 +13086,10 @@ class TestFileValidator:
 
     def test_validate_file_size_exceeds_limit(self):
         """Test that file size exceeding limit raises InvalidFileError."""
-        from app.services.file_validator import FileValidator
+        from app.services.file_validator import FileValidatorService
         from app.exceptions import InvalidFileError
 
-        validator = FileValidator(max_file_size_mb=50)
+        validator = FileValidatorService(max_file_size_mb=50)
 
         # 100 MB file (exceeds 50 MB limit)
         file_size = 100 * 1024 * 1024
@@ -13103,10 +13103,10 @@ class TestFileValidator:
 
     def test_validate_file_size_negative(self):
         """Test that negative file size raises InvalidFileError."""
-        from app.services.file_validator import FileValidator
+        from app.services.file_validator import FileValidatorService
         from app.exceptions import InvalidFileError
 
-        validator = FileValidator()
+        validator = FileValidatorService()
 
         with pytest.raises(InvalidFileError) as exc_info:
             validator.validate_file_size(-100)
@@ -13115,9 +13115,9 @@ class TestFileValidator:
 
     def test_sanitize_filename_removes_path_traversal(self):
         """Test that path traversal attempts are sanitized."""
-        from app.services.file_validator import FileValidator
+        from app.services.file_validator import FileValidatorService
 
-        validator = FileValidator()
+        validator = FileValidatorService()
 
         # Path traversal attack attempts
         dangerous_filenames = [
@@ -13141,9 +13141,9 @@ class TestFileValidator:
 
     def test_validate_mime_type_allowed(self):
         """Test that allowed MIME types pass validation."""
-        from app.services.file_validator import FileValidator
+        from app.services.file_validator import FileValidatorService
 
-        validator = FileValidator()
+        validator = FileValidatorService()
 
         allowed_types = [
             'application/pdf',
@@ -13161,9 +13161,9 @@ class TestFileValidator:
 
     def test_validate_sha256_hash_valid(self):
         """Test that valid SHA-256 hashes pass validation."""
-        from app.services.file_validator import FileValidator
+        from app.services.file_validator import FileValidatorService
 
-        validator = FileValidator()
+        validator = FileValidatorService()
 
         valid_hashes = [
             'a' * 64,  # All lowercase
@@ -14686,7 +14686,7 @@ With the recommended fixes, this code will be production-ready and provide a sol
 **Critical Improvements Applied:**
 
 1. **🔐 Security Enhancements**
-   - Added `FileValidator` service with python-magic for MIME type detection
+   - Added `FileValidatorService` service with python-magic for MIME type detection
    - Filename sanitization to prevent path traversal attacks
    - SHA-256 hashing for deduplication and integrity verification
    - File size limits and extension whitelist
@@ -14726,7 +14726,7 @@ Phase 5 implements the critical missing piece in the IntelliRAG system: **docume
 
 **Key Innovations:**
 - **Dual-Storage Architecture**: PostgreSQL for ACID-compliant metadata management + MinIO (via aioboto3) for S3-compatible object storage
-- **Security-First Design**: FileValidator with MIME detection, filename sanitization, and hash-based deduplication
+- **Security-First Design**: FileValidatorService with MIME detection, filename sanitization, and hash-based deduplication
 - **Transaction Safety**: Full rollback capability on processing failures with comprehensive error handling and retry logic
 - **Real-Time Observability**: Complete audit trail and processing status tracking at every pipeline step
 - **Production-Grade Configuration**: Connection pooling, command timeouts, transaction isolation levels
@@ -15433,7 +15433,7 @@ def downgrade():
 
 **API Design:**
 ```python
-class FileValidator:
+class FileValidatorService:
     """Validates uploaded files for security and integrity.
 
     Security checks:
@@ -15604,7 +15604,7 @@ class CollectionListResponse(BaseModel):
 **Purpose:** Orchestrate document upload and processing
 
 **Features:**
-- **File Validation**: Use FileValidator for security checks
+- **File Validation**: Use FileValidatorService for security checks
 - **Duplicate Detection**: Check file hash before processing (SERIALIZABLE transaction)
 - **Idempotency**: Support idempotency keys to prevent duplicate uploads on retry
 - Generate unique job_id (UUID)
@@ -15626,7 +15626,7 @@ class IngestionService:
         self,
         database_service: DatabaseService,
         storage_service: MinIOStorageService,
-        file_validator: FileValidator,
+        file_validator: FileValidatorService,
         embedding_service: EmbeddingService,
         vectordb_service: VectorDBService,
         preprocessing_pipeline: PreprocessingPipeline
@@ -15642,7 +15642,7 @@ class IngestionService:
         """Ingest a document with full validation and error handling.
 
         Steps:
-        1. Validate file (FileValidator)
+        1. Validate file (FileValidatorService)
         2. Check for duplicates (by file_hash with SERIALIZABLE isolation)
         3. Check idempotency key (if provided)
         4. Create collection if doesn't exist
@@ -15687,7 +15687,7 @@ class IngestionService:
 ```
 
 **Processing Pipeline with Error Handling:**
-1. **Validate & Check Duplicates** (FileValidator + DB)
+1. **Validate & Check Duplicates** (FileValidatorService + DB)
    - Error: Return ValidationError to user immediately
 2. **Store file in MinIO** (raw-documents bucket, streaming)
    - Error: Retry up to 3 times, then fail job
@@ -16194,7 +16194,7 @@ Use appropriate isolation levels based on operation:
 
 ### Security Checklist
 
-- [ ] File validation enabled (FileValidator)
+- [ ] File validation enabled (FileValidatorService)
 - [ ] MIME type detection from binary content (python-magic)
 - [ ] Filename sanitization (remove path traversal)
 - [ ] File size limits enforced
