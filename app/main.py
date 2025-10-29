@@ -2,7 +2,6 @@
 
 This module provides the main FastAPI application with RAG endpoints.
 
-
 Date: 2025-10-17
 """
 
@@ -12,6 +11,8 @@ from app.services.orchestrator import OrchestratorService
 from app.models.schemas import QueryRequest, QueryResponse, QueryClassificationSchema
 from prometheus_client import generate_latest
 from app.core.logging import setup_logging, get_logger
+from app.api.v1.upload import router as upload_router
+from app.api.v1.ingest import router as ingest_router
 
 # Configure structured logging
 setup_logging(level="INFO")
@@ -47,6 +48,10 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+# Include routers
+app.include_router(upload_router)
+app.include_router(ingest_router)
 
 
 @app.get("/health")
@@ -94,15 +99,19 @@ async def query_endpoint(request: QueryRequest) -> QueryResponse:
             reasoning=result["classification"].reasoning
         )
 
-    # Format response
+    # Format response - handle None answer gracefully
+    answer = result.get("answer") or result.get(
+        "response") or "Unable to generate response"
+    sources = result.get("sources", [])
+
     response = QueryResponse(
-        answer=result["answer"],
-        sources=result["sources"],
+        answer=answer,
+        sources=sources,
         used_rag=request.use_rag,
         query=request.query,
         classification=classification_schema
     )
 
-    logger.info(f"Query completed with {len(result['sources'])} sources")
+    logger.info(f"Query completed with {len(sources)} sources")
 
     return response
