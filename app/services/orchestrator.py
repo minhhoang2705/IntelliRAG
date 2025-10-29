@@ -12,6 +12,9 @@ from app.services.llm_client import LLMClientService
 from app.services.rag_pipeline import RAGPipelineService
 from app.services.query_router.classifier import QueryClassifier
 from app.services.query_router_service import QueryRouterService
+from app.services.job_state import JobStateManager
+from app.services.gcs_loader import GCSLoaderService
+from app.services.semantic_chunker import SemanticChunkerService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,7 +27,9 @@ class OrchestratorService:
         self,
         vectordb_url: str = "http://localhost:6333",
         llm_base_url: str = "http://localhost:8000/v1",
-        llm_model: str = "Qwen/Qwen3-0.6B"
+        llm_model: str = "Qwen/Qwen3-0.6B",
+        gcs_project: str = "test-project",
+        gcs_bucket: str = "test-bucket"
     ):
         """Initialize orchestrator with all required services.
 
@@ -32,6 +37,8 @@ class OrchestratorService:
             vectordb_url: Qdrant vector database URL
             llm_base_url: vLLM server base URL
             llm_model: LLM model name
+            gcs_project: GCP project ID
+            gcs_bucket: GCS bucket name
         """
         logger.info("Initializing OrchestratorService...")
 
@@ -57,6 +64,15 @@ class OrchestratorService:
             vectordb=self.vectordb_service,
             llm=self.llm_client
         )
+
+        # Initialize ingestion services
+        self.gcs_loader = GCSLoaderService(
+            project_name=gcs_project, bucket=gcs_bucket)
+        self.semantic_chunker = SemanticChunkerService(
+            embeddings=self.embedding_service)
+
+        # Initialize job state manager
+        self.job_state_manager = JobStateManager()
 
         logger.info("OrchestratorService initialized successfully")
 
@@ -86,9 +102,74 @@ class OrchestratorService:
             collection_name=collection_name
         )
 
+        # Extract sources from context if available
+        sources = []
+        if result.get("context"):
+            # Context is a list of retrieved documents with scores
+            for doc in result["context"]:
+                sources.append({
+                    "text": doc.get("text", ""),
+                    "score": doc.get("score", 0.0),
+                    "id": str(doc.get("id", ""))
+                })
+
         # Transform result to maintain backward compatibility
         return {
             "answer": result.get("response", ""),
-            "sources": [],  # TODO: Extract from context
+            "sources": sources,
             "classification": result.get("classification")
         }
+
+    async def ingest(self, file_path: str, collection_name: str):
+        """Ingest document into vector database.
+
+        Args:
+            file_path: GCS path to the document (format: gs://bucket/path/to/file)
+            collection_name: Target collection in vector database
+
+        Returns:
+            Job ID for tracking ingestion progress
+        """
+        from app.services.job_state import JobStatus
+
+        job_id = self.job_state_manager.create_job(file_path, collection_name)
+        self.job_state_manager.update_job_status(job_id, JobStatus.PROCESSING)
+
+        try:
+            # Parse GCS path to extract blob path
+            # gs://bucket/folder/file.pdf -> folder/file.pdf
+            blob_path = file_path.replace(
+                f"gs://{self.gcs_loader.bucket}/", "")
+
+            # Load document from GCS
+            documents = await self.gcs_loader.load_file(blob_path)
+
+            # Chunk documents semantically
+            chunks = await self.semantic_chunker.chunk_documents(documents)
+
+            # Generate embeddings for chunks
+            chunk_texts = [chunk.page_content for chunk in chunks]
+            embeddings = self.embedding_service.embed_batch(chunk_texts)
+
+            # Store vectors in database
+            await self.vectordb_service.upsert_vectors(
+                collection_name=collection_name,
+                vectors=embeddings,
+                payloads=[chunk.metadata for chunk in chunks],
+                ids=None  # Let Qdrant generate IDs
+            )
+
+            # Mark job as completed
+            self.job_state_manager.update_job_status(
+                job_id, JobStatus.COMPLETED)
+
+        except Exception as e:
+            # Mark job as failed with error message
+            self.job_state_manager.update_job_status(
+                job_id,
+                JobStatus.FAILED,
+                error=str(e)
+            )
+            raise
+
+        return job_id
