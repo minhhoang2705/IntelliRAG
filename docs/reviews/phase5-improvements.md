@@ -217,7 +217,7 @@ ALLOWED_MIME_TYPES = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 }
 
-class FileValidator:
+class FileValidatorService:
     def __init__(self, max_size_mb: int = 50):
         self.max_size_bytes = max_size_mb * 1024 * 1024
     
@@ -313,7 +313,7 @@ class FileValidator:
 ```python
 class IngestionService:
     def __init__(self, ...):
-        self.file_validator = FileValidator(max_size_mb=settings.max_file_size_mb)
+        self.file_validator = FileValidatorService(max_size_mb=settings.max_file_size_mb)
     
     async def ingest_document(
         self,
@@ -1830,7 +1830,7 @@ app = FastAPI(
   - [ ] Add comprehensive error handling
 
 - [ ] **File Validation**
-  - [ ] Create FileValidator class
+  - [ ] Create FileValidatorService class
   - [ ] Implement MIME type verification (python-magic)
   - [ ] Add filename sanitization
   - [ ] Implement size validation
@@ -1875,7 +1875,7 @@ app = FastAPI(
 - [ ] **Unit Tests**
   - [ ] DatabaseService tests
   - [ ] MinIOStorageService tests
-  - [ ] FileValidator tests
+  - [ ] FileValidatorService tests
   - [ ] IngestionService tests
 
 - [ ] **Integration Tests**
@@ -1914,7 +1914,7 @@ uv add --dev pytest-asyncio pytest-timeout
 
 1. **Immediate (Before Phase 5 Implementation):**
    - Switch to aioboto3
-   - Add FileValidator
+   - Add FileValidatorService
    - Update database schema with missing indexes
 
 2. **During Phase 5 Implementation:**

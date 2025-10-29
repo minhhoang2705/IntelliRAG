@@ -69,7 +69,7 @@ Please refer to the following updated documents:
 **Critical Improvements Applied:**
 
 1. **🔐 Security Enhancements**
-   - Added `FileValidator` service with python-magic for MIME type detection
+   - Added `FileValidatorService` service with python-magic for MIME type detection
    - Filename sanitization to prevent path traversal attacks
    - SHA-256 hashing for deduplication and integrity verification
    - File size limits and extension whitelist
@@ -109,7 +109,7 @@ Phase 5 implements the critical missing piece in the IntelliRAG system: **docume
 
 **Key Innovations:**
 - **Dual-Storage Architecture**: PostgreSQL for ACID-compliant metadata management + MinIO (via aioboto3) for S3-compatible object storage
-- **Security-First Design**: FileValidator with MIME detection, filename sanitization, and hash-based deduplication
+- **Security-First Design**: FileValidatorService with MIME detection, filename sanitization, and hash-based deduplication
 - **Transaction Safety**: Full rollback capability on processing failures with comprehensive error handling and retry logic
 - **Real-Time Observability**: Complete audit trail and processing status tracking at every pipeline step
 - **Production-Grade Configuration**: Connection pooling, command timeouts, transaction isolation levels
@@ -816,7 +816,7 @@ def downgrade():
 
 **API Design:**
 ```python
-class FileValidator:
+class FileValidatorService:
     """Validates uploaded files for security and integrity.
 
     Security checks:
@@ -987,7 +987,7 @@ class CollectionListResponse(BaseModel):
 **Purpose:** Orchestrate document upload and processing
 
 **Features:**
-- **File Validation**: Use FileValidator for security checks
+- **File Validation**: Use FileValidatorService for security checks
 - **Duplicate Detection**: Check file hash before processing (SERIALIZABLE transaction)
 - **Idempotency**: Support idempotency keys to prevent duplicate uploads on retry
 - Generate unique job_id (UUID)
@@ -1009,7 +1009,7 @@ class IngestionService:
         self,
         database_service: DatabaseService,
         storage_service: MinIOStorageService,
-        file_validator: FileValidator,
+        file_validator: FileValidatorService,
         embedding_service: EmbeddingService,
         vectordb_service: VectorDBService,
         preprocessing_pipeline: PreprocessingPipeline
@@ -1025,7 +1025,7 @@ class IngestionService:
         """Ingest a document with full validation and error handling.
 
         Steps:
-        1. Validate file (FileValidator)
+        1. Validate file (FileValidatorService)
         2. Check for duplicates (by file_hash with SERIALIZABLE isolation)
         3. Check idempotency key (if provided)
         4. Create collection if doesn't exist
@@ -1070,7 +1070,7 @@ class IngestionService:
 ```
 
 **Processing Pipeline with Error Handling:**
-1. **Validate & Check Duplicates** (FileValidator + DB)
+1. **Validate & Check Duplicates** (FileValidatorService + DB)
    - Error: Return ValidationError to user immediately
 2. **Store file in MinIO** (raw-documents bucket, streaming)
    - Error: Retry up to 3 times, then fail job
@@ -1577,7 +1577,7 @@ Use appropriate isolation levels based on operation:
 
 ### Security Checklist
 
-- [ ] File validation enabled (FileValidator)
+- [ ] File validation enabled (FileValidatorService)
 - [ ] MIME type detection from binary content (python-magic)
 - [ ] Filename sanitization (remove path traversal)
 - [ ] File size limits enforced

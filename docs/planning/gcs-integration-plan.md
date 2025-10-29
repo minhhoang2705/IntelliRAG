@@ -166,45 +166,45 @@ This document provides the complete implementation plan for integrating Google C
 └─────────────────────────────────────────────────────────────┘
                              │
                              ↓
-                    ┌────────────────┐
-                    │  FileValidator  │
-                    │  - MIME check   │
-                    │  - Size check   │
-                    │  - SHA-256 hash │
-                    └────────────────┘
+                    ┌────────────------────┐
+                    │  FileValidatorService│
+                    │   - MIME check       │
+                    │   - Size check       │
+                    │   - SHA-256 hash     │
+                    └───────────────------─┘
                              │
                              ↓
                     ┌────────────────┐
-                    │  GCS Upload     │
-                    │  - Raw document │
-                    │  - Metadata     │
+                    │  GCS Upload    │
+                    │ - Raw document │
+                    │ - Metadata     │
                     └────────────────┘
                              │
                              ↓
                 ┌────────────────────────────┐
                 │  Qdrant Payload Creation   │
-                │  - document_id              │
-                │  - filename                 │
-                │  - gcs_uri                  │
-                │  - file_hash                │
-                │  - processing_status        │
-                │  - custom_metadata          │
+                │  - document_id             │
+                │  - filename                │
+                │  - gcs_uri                 │
+                │  - file_hash               │
+                │  - processing_status       │
+                │  - custom_metadata         │
                 └────────────────────────────┘
                              │
                              ↓
                     ┌────────────────┐
-                    │  LangChain GCS  │
-                    │  Loader         │
-                    │  - Load doc     │
-                    │  - Parse        │
-                    │  - Chunk        │
+                    │  LangChain GCS │
+                    │  Loader        │
+                    │  - Load doc    │
+                    │  - Parse       │
+                    │  - Chunk       │
                     └────────────────┘
                              │
                              ↓
                     ┌────────────────┐
-                    │  Qdrant Index   │
-                    │  - Vectors      │
-                    │  - Payloads     │
+                    │  Qdrant Index  │
+                    │  - Vectors     │
+                    │  - Payloads    │
                     └────────────────┘
 ```
 

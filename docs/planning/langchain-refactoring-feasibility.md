@@ -69,7 +69,7 @@ All components below are **REQUIRED** for project completion:
 
 ### Completed Components (Custom Implementation)
 
-1. **FileValidator** ✅ - Security-focused validation with MIME type detection
+1. **FileValidatorService** ✅ - Security-focused validation with MIME type detection
 2. **EmbeddingService** ✅ - Direct sentence-transformers with batch processing
 3. **VectorDBService** ✅ - Native Qdrant async client (97% coverage)
 4. **LLMClient** ✅ - OpenAI-compatible vLLM integration (94% coverage)
@@ -462,7 +462,7 @@ All components below are **REQUIRED** for project completion:
 
 **Justification**: Performance-sensitive, custom batching logic
 
-#### 8. **FileValidator** (CRITICAL - Don't Change)
+#### 8. **FileValidatorService** (CRITICAL - Don't Change)
 
 - Security-critical component
 - Custom validation rules (MIME detection, hash calculation)
@@ -1319,7 +1319,7 @@ class DriftDetector:
 1. **VectorDBService** - Direct Qdrant optimal (extend with payloads)
 2. **LLMClient** - vLLM integration critical for performance
 3. **EmbeddingService** - Simple and efficient as-is
-4. **FileValidator** - Security requirements
+4. **FileValidatorService** - Security requirements
 
 ### 🟡 Evaluate (Decide Later)
 
