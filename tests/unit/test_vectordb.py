@@ -260,16 +260,22 @@ class TestVectorDBServiceSearchOperations:
         RED Phase: Will fail because search_vectors method doesn't exist.
         """
         from app.services.vectordb import VectorDBService
+        from qdrant_client.models import ScoredPoint
 
         service = VectorDBService(url="http://localhost:6333")
 
-        # Mock search results
-        mock_results = [
-            {"id": "doc_1", "score": 0.95, "payload": {"text": "result 1"}},
-            {"id": "doc_2", "score": 0.85, "payload": {"text": "result 2"}}
+        # Mock search results with proper Qdrant response structure
+        mock_points = [
+            ScoredPoint(id="doc_1", score=0.95, payload={"text": "result 1"}, version=1, vector=None),
+            ScoredPoint(id="doc_2", score=0.85, payload={"text": "result 2"}, version=1, vector=None)
         ]
-        mocker.patch.object(service.client, 'search',
-                            return_value=mock_results)
+        
+        # Create a mock response object with points attribute
+        mock_response = mocker.MagicMock()
+        mock_response.points = mock_points
+        
+        mocker.patch.object(service.client, 'query_points',
+                            return_value=mock_response)
 
         # Search with a query vector
         query_vector = [0.1] * 1024
@@ -280,4 +286,4 @@ class TestVectorDBServiceSearchOperations:
         )
 
         assert len(results) == 2
-        assert results[0]["score"] == 0.95
+        assert results[0].score == 0.95

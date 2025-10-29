@@ -8,6 +8,7 @@ Date: 2025-10-17
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import requests
 import time
@@ -65,3 +66,17 @@ def check_vllm():
         pytest.skip(
             "vLLM not running. Start with: docker run -d --gpus all -p 8000:8000 vllm/vllm-openai --model Qwen/Qwen3-0.6B"
         )
+
+
+@pytest_asyncio.fixture(scope="function")
+async def initialized_app():
+    """Fixture that provides FastAPI app with initialized orchestrator.
+    
+    This fixture properly initializes the app using the lifespan context manager
+    to ensure the orchestrator is available for tests.
+    """
+    from app import main
+    
+    # Manually trigger lifespan startup
+    async with main.lifespan(main.app):
+        yield main.app
