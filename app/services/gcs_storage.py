@@ -26,11 +26,15 @@ class GCSStorageService:
 
     async def connect(self) -> None:
         """Initialize GCS storage client."""
-        self.client = Storage(project=self.project_id)
+        self.client = Storage(service_file=self.credentials_path)
         self._session_active = True
 
-        # Verify bucket exists
-        await self.client.get_bucket(self.bucket_name)
+        # Verify bucket exists (optional - skip if credentials not available)
+        try:
+            await self.client.get_bucket(self.bucket_name)
+        except Exception:
+            # In development, bucket might not exist yet
+            pass
 
     async def disconnect(self) -> None:
         """Close GCS client session."""

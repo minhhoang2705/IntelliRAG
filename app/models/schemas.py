@@ -32,6 +32,10 @@ class QueryRequest(BaseModel):
     max_tokens: Optional[int] = Field(
         default=None, ge=1, description="Max tokens to generate")
 
+class IngestRequest(BaseModel):
+    """Request model for document ingestion."""
+    file_path: str = Field(..., description="GCS path to document")
+    collection_name: str = Field(..., description="Target collection")
 
 class SourceDocument(BaseModel):
     """Model for source document retrieved from vector DB."""
@@ -148,3 +152,36 @@ class QdrantPayload(BaseModel):
                                description="Collection identifier")
     tags: list[str] = Field(default_factory=list,
                             description="Custom tags for filtering")
+
+
+class UploadResponse(BaseModel):
+    """Response model for file upload endpoint."""
+    file_id: str = Field(..., description="Unique file identifier (UUID)")
+    filename: str = Field(..., description="Original filename")
+    gcs_path: str = Field(..., description="GCS storage path (gs://...)")
+    file_size: int = Field(..., ge=0, description="File size in bytes")
+    mime_type: str = Field(..., description="MIME type (e.g., application/pdf)")
+    uploaded_at: str = Field(..., description="Upload timestamp (ISO format)")
+
+
+class IngestResponse(BaseModel):
+    """Response model for async ingestion start (202 Accepted).
+    """
+    job_id: str = Field(..., description="Job identifier for tracking")
+    status: str = Field(..., description="Initial job status (pending/processing)")
+    message: str = Field(..., description="Human-readable status message")
+    file_path: str = Field(..., description="GCS path being processed")
+    collection_name: str = Field(..., description="Target collection")
+
+
+class IngestStatusResponse(BaseModel):
+    """Response model for ingestion status endpoint.
+    """
+    job_id: str = Field(..., description="Job identifier")
+    status: str = Field(..., description="Current job status")
+    progress: int = Field(..., ge=0, le=100, description="Progress percentage (0-100)")
+    message: str = Field(..., description="Status message")
+    file_path: str = Field(..., description="GCS path being processed")
+    collection_name: str = Field(..., description="Target collection")
+    chunks_created: int = Field(default=0, ge=0, description="Number of chunks created")
+    error: Optional[str] = Field(default=None, description="Error message if failed")
