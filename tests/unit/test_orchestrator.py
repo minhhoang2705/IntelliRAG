@@ -200,6 +200,51 @@ async def test_ingest_creates_job_and_returns_job_id(mocker):
 
 
 @pytest.mark.asyncio
+async def test_ingest_accepts_existing_job_id(mocker):
+    """Test that ingest() accepts an optional job_id parameter.
+
+    When job_id is provided, it should use that job instead of creating a new one.
+    This prevents duplicate job creation in background task scenarios.
+    
+    Expected: Uses provided job_id instead of creating a new one.
+    """
+    from app.services.orchestrator import OrchestratorService
+    from langchain_core.documents import Document
+
+    orchestrator = OrchestratorService()
+
+    # Pre-create a job
+    existing_job_id = orchestrator.job_state_manager.create_job(
+        file_path="gs://bucket/test.pdf",
+        collection_name="test_collection"
+    )
+
+    # Mock services to prevent real GCS calls
+    mocker.patch.object(orchestrator.gcs_loader, 'load_file', AsyncMock(
+        return_value=[Document(page_content="test")]))
+    mocker.patch.object(orchestrator.semantic_chunker,
+                        'chunk_documents', AsyncMock(return_value=[]))
+    mocker.patch.object(orchestrator.embedding_service,
+                        'embed_batch', return_value=[])
+    mocker.patch.object(orchestrator.vectordb_service,
+                        'upsert_vectors', AsyncMock())
+
+    # Call ingest with existing job_id
+    returned_job_id = await orchestrator.ingest(
+        file_path="gs://bucket/test.pdf",
+        collection_name="test_collection",
+        job_id=existing_job_id
+    )
+
+    # Should return the same job_id, not create a new one
+    assert returned_job_id == existing_job_id
+    
+    # Should only have one job in the manager
+    all_jobs = orchestrator.job_state_manager._jobs
+    assert len(all_jobs) == 1
+
+
+@pytest.mark.asyncio
 async def test_ingest_updates_job_to_processing(mocker):
     """Test that ingest() updates job status to PROCESSING.
 
@@ -305,3 +350,48 @@ async def test_ingest_completes_full_pipeline_and_marks_completed(mocker):
     job = orchestrator.job_state_manager.get_job(job_id)
     assert job.status == JobStatus.COMPLETED
     assert job.error is None
+
+
+@pytest.mark.asyncio
+async def test_ingest_accepts_existing_job_id(mocker):
+    """Test that ingest() accepts an optional job_id parameter.
+
+    When job_id is provided, it should use that job instead of creating a new one.
+    This prevents duplicate job creation in background task scenarios.
+    
+    Expected: Uses provided job_id instead of creating a new one.
+    """
+    from app.services.orchestrator import OrchestratorService
+    from langchain_core.documents import Document
+
+    orchestrator = OrchestratorService()
+
+    # Pre-create a job
+    existing_job_id = orchestrator.job_state_manager.create_job(
+        file_path="gs://bucket/test.pdf",
+        collection_name="test_collection"
+    )
+
+    # Mock services to prevent real GCS calls
+    mocker.patch.object(orchestrator.gcs_loader, 'load_file', AsyncMock(
+        return_value=[Document(page_content="test")]))
+    mocker.patch.object(orchestrator.semantic_chunker,
+                        'chunk_documents', AsyncMock(return_value=[]))
+    mocker.patch.object(orchestrator.embedding_service,
+                        'embed_batch', return_value=[])
+    mocker.patch.object(orchestrator.vectordb_service,
+                        'upsert_vectors', AsyncMock())
+
+    # Call ingest with existing job_id
+    returned_job_id = await orchestrator.ingest(
+        file_path="gs://bucket/test.pdf",
+        collection_name="test_collection",
+        job_id=existing_job_id
+    )
+
+    # Should return the same job_id, not create a new one
+    assert returned_job_id == existing_job_id
+    
+    # Should only have one job in the manager
+    all_jobs = orchestrator.job_state_manager._jobs
+    assert len(all_jobs) == 1

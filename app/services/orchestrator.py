@@ -15,7 +15,15 @@ from app.services.query_router_service import QueryRouterService
 from app.services.job_state import JobStateManager
 from app.services.gcs_loader import GCSLoaderService
 from app.services.semantic_chunker import SemanticChunkerService
+from app.utils import extract_file_extension
 import logging
+import time
+from app.api.middleware.metrics import (
+    document_processing_stage_duration_seconds,
+    ingestion_chunks_created,
+    ingestion_job_duration_seconds,
+    ingestion_errors_total
+)
 
 logger = logging.getLogger(__name__)
 
@@ -120,50 +128,118 @@ class OrchestratorService:
             "classification": result.get("classification")
         }
 
-    async def ingest(self, file_path: str, collection_name: str):
+    async def ingest(self, file_path: str, collection_name: str, job_id: str = None):
         """Ingest document into vector database.
 
         Args:
             file_path: GCS path to the document (format: gs://bucket/path/to/file)
             collection_name: Target collection in vector database
+            job_id: Optional pre-existing job ID. If not provided, creates a new job.
 
         Returns:
             Job ID for tracking ingestion progress
         """
         from app.services.job_state import JobStatus
 
-        job_id = self.job_state_manager.create_job(file_path, collection_name)
+        # Use provided job_id or create a new one
+        if job_id is None:
+            job_id = self.job_state_manager.create_job(file_path, collection_name)
+        
         self.job_state_manager.update_job_status(job_id, JobStatus.PROCESSING)
 
+        # Start timing for end-to-end job duration
+        job_start_time = time.time()
+        
         try:
+            # Extract file type for metrics
+            file_extension = extract_file_extension(file_path)
             # Parse GCS path to extract blob path
             # gs://bucket/folder/file.pdf -> folder/file.pdf
             blob_path = file_path.replace(
                 f"gs://{self.gcs_loader.bucket}/", "")
 
             # Load document from GCS
-            documents = await self.gcs_loader.load_file(blob_path)
+            try:
+                start_time = time.time()
+                documents = await self.gcs_loader.load_file(blob_path)
+                load_duration = time.time() - start_time
+                document_processing_stage_duration_seconds.labels(
+                    stage='loading', file_type=file_extension
+                ).observe(load_duration)
+            except Exception as e:
+                ingestion_errors_total.labels(
+                    error_type=type(e).__name__, stage='loading'
+                ).inc()
+                raise
 
             # Chunk documents semantically
-            chunks = await self.semantic_chunker.chunk_documents(documents)
+            try:
+                start_time = time.time()
+                chunks = await self.semantic_chunker.chunk_documents(documents)
+                chunk_duration = time.time() - start_time
+                document_processing_stage_duration_seconds.labels(
+                    stage='chunking', file_type=file_extension
+                ).observe(chunk_duration)
+                ingestion_chunks_created.labels(file_type=file_extension).observe(len(chunks))
+            except Exception as e:
+                ingestion_errors_total.labels(
+                    error_type=type(e).__name__, stage='chunking'
+                ).inc()
+                raise
 
             # Generate embeddings for chunks
-            chunk_texts = [chunk.page_content for chunk in chunks]
-            embeddings = self.embedding_service.embed_batch(chunk_texts)
+            try:
+                chunk_texts = [chunk.page_content for chunk in chunks]
+                start_time = time.time()
+                embeddings = self.embedding_service.embed_batch(chunk_texts)
+                embed_duration = time.time() - start_time
+                document_processing_stage_duration_seconds.labels(
+                    stage='embedding', file_type=file_extension
+                ).observe(embed_duration)
+            except Exception as e:
+                ingestion_errors_total.labels(
+                    error_type=type(e).__name__, stage='embedding'
+                ).inc()
+                raise
 
             # Store vectors in database
-            await self.vectordb_service.upsert_vectors(
-                collection_name=collection_name,
-                vectors=embeddings,
-                payloads=[chunk.metadata for chunk in chunks],
-                ids=None  # Let Qdrant generate IDs
-            )
+            try:
+                start_time = time.time()
+                await self.vectordb_service.upsert_vectors(
+                    collection_name=collection_name,
+                    vectors=embeddings,
+                    payloads=[chunk.metadata for chunk in chunks],
+                    ids=None  # Let Qdrant generate IDs
+                )
+                storage_duration = time.time() - start_time
+                document_processing_stage_duration_seconds.labels(
+                    stage='storage', file_type=file_extension
+                ).observe(storage_duration)
+            except Exception as e:
+                ingestion_errors_total.labels(
+                    error_type=type(e).__name__, stage='storage'
+                ).inc()
+                raise
+
 
             # Mark job as completed
             self.job_state_manager.update_job_status(
                 job_id, JobStatus.COMPLETED)
+            
+            # Record successful job duration
+            job_duration = time.time() - job_start_time
+            ingestion_job_duration_seconds.labels(
+                status='completed', file_type=file_extension
+            ).observe(job_duration)
 
         except Exception as e:
+            # Record failed job duration
+            job_duration = time.time() - job_start_time
+            file_extension = extract_file_extension(file_path)
+            ingestion_job_duration_seconds.labels(
+                status='failed', file_type=file_extension
+            ).observe(job_duration)
+            
             # Mark job as failed with error message
             self.job_state_manager.update_job_status(
                 job_id,
