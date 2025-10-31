@@ -12,6 +12,11 @@ import pytest_asyncio
 import asyncio
 import requests
 import time
+import os
+from dotenv import load_dotenv
+
+# Load test environment variables at conftest level (before app initialization)
+load_dotenv(".env.test")
 
 
 def qdrant_available():
@@ -75,8 +80,24 @@ async def initialized_app():
     This fixture properly initializes the app using the lifespan context manager
     to ensure the orchestrator is available for tests.
     """
+    import logging
     from app import main
+    
+    logger = logging.getLogger(__name__)
+    
+    # Verify environment variables are loaded
+    gcs_project = os.getenv("GCP_PROJECT_ID")
+    gcs_bucket = os.getenv("GCS_BUCKET_NAME")
+    gcs_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    
+    logger.info(f"Test environment - GCP_PROJECT_ID: {gcs_project}")
+    logger.info(f"Test environment - GCS_BUCKET_NAME: {gcs_bucket}")
+    logger.info(f"Test environment - GOOGLE_APPLICATION_CREDENTIALS: {gcs_creds}")
     
     # Manually trigger lifespan startup
     async with main.lifespan(main.app):
+        # Verify orchestrator is initialized
+        assert main.orchestrator is not None, "Orchestrator not initialized"
+        assert main.orchestrator.gcs_loader is not None, "GCS loader not initialized"
+        logger.info("Orchestrator initialized successfully")
         yield main.app

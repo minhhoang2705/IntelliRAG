@@ -6,6 +6,7 @@ Date: 2025-10-17
 """
 
 from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI, Response
 from app.services.orchestrator import OrchestratorService
 from app.models.schemas import QueryRequest, QueryResponse, QueryClassificationSchema
@@ -31,7 +32,9 @@ async def lifespan(app: FastAPI):
     orchestrator = OrchestratorService(
         vectordb_url="http://localhost:6333",
         llm_base_url="http://localhost:8000/v1",
-        llm_model="Qwen/Qwen3-0.6B"
+        llm_model="Qwen/Qwen3-0.6B",
+        gcs_project=os.getenv("GCP_PROJECT_ID", "test-project"),
+        gcs_bucket=os.getenv("GCS_BUCKET_NAME", "test-bucket")
     )
     logger.info("IntelliRAG services initialized successfully")
 

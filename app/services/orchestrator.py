@@ -202,6 +202,16 @@ class OrchestratorService:
                 ).inc()
                 raise
 
+            # Ensure collection exists before upserting
+            collection_exists = await self.vectordb_service.collection_exists(collection_name)
+            if not collection_exists:
+                logger.info(f"Creating collection: {collection_name}")
+                await self.vectordb_service.create_collection(
+                    collection_name=collection_name,
+                    vector_size=self.embedding_service.get_embedding_dimension(),
+                    distance="cosine"
+                )
+            
             # Store vectors in database
             try:
                 start_time = time.time()
@@ -222,9 +232,20 @@ class OrchestratorService:
                 raise
 
 
-            # Mark job as completed
+            # Mark job as completed with progress and chunks info
             self.job_state_manager.update_job_status(
                 job_id, JobStatus.COMPLETED)
+            self.job_state_manager.update_job_progress(
+                job_id, 
+                progress=100, 
+                message=f"Ingestion completed successfully. Created {len(chunks)} chunks."
+            )
+            # Update chunks_created in job state
+            job = self.job_state_manager.get_job(job_id)
+            if job:
+                job.chunks_created = len(chunks)
+            else:
+                logger.warning(f"Job {job_id} not found in job state manager after completion")
             
             # Record successful job duration
             job_duration = time.time() - job_start_time

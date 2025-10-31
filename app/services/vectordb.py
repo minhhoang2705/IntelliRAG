@@ -17,6 +17,7 @@ from typing import Optional, List, Dict, Any
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class VectorDBService:
         collection_name: str,
         vectors: List[List[float]],
         payloads: List[Dict[str, Any]],
-        ids: List[str]
+        ids: Optional[List[str]] = None
     ) -> bool:
         """Upsert vectors with metadata.
 
@@ -113,11 +114,15 @@ class VectorDBService:
             collection_name: Name of the collection
             vectors: List of vectors (each vector is a list of floats)
             payloads: List of metadata dictionaries for each vector
-            ids: List of unique IDs for each vector
+            ids: List of unique IDs for each vector. If None, UUIDs will be generated.
 
         Returns:
             True if upsert successful
         """
+        # Generate UUIDs if ids not provided
+        if ids is None:
+            ids = [str(uuid.uuid4()) for _ in range(len(vectors))]
+        
         points = [
             PointStruct(
                 id=point_id,

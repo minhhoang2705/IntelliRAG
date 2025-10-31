@@ -11,9 +11,13 @@ intellirag
 
 # environment 
 .env
+.env.test
 .venv/
 .cursor/
 .coverage
+
+/gcp_secret/
+*.json
 
 # Model weight files are large, exclude from git
 # (Note: app/models/ contains Python schemas and should be tracked)
@@ -26,6 +30,5 @@ intellirag
 
 # Qdrant database storage
 qdrant_storage/
-
 # Claude Code temporary files
 .claude/
