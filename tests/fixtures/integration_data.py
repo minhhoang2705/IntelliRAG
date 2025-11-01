@@ -3,7 +3,7 @@
 This module provides sample data for integration testing of EmbeddingService,
 VectorDBService, and end-to-end workflows.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 

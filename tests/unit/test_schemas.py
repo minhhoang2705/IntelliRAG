@@ -1,6 +1,6 @@
 """Unit tests for Pydantic schemas (API request/response models).
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 

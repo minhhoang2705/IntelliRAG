@@ -56,17 +56,27 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - SSL/TLS termination
   - Kubernetes Ingress Controller
 
+### **Storage & Data Management**
+- **Google Cloud Storage (GCS)**
+  - Raw document storage
+  - Fully managed cloud storage
+  - Native GCP integration
+  - Async operations via `gcloud-aio-storage`
+  - Cost-effective ($0.026/GB/month)
+
 ### **Vector Database & Embeddings**
 - **Qdrant** (`/qdrant/qdrant-client` - Trust: 9.8)
   - Async operations supported
   - Collection management
   - Vector search with filters
-  - Persistence layer for embeddings
-  
+  - **Payload metadata storage** (replaces traditional database)
+  - Full-text search and filtering on payloads
+  - Co-located vectors + metadata for performance
+
 - **Sentence Transformers** (`/ukplab/sentence-transformers` - Trust: 7.8)
   - Pre-trained embedding models
   - Batch encoding support
-  - `all-MiniLM-L6-v2` (384 dim, recommended)
+  - `BAAI/bge-m3` (1024 dim, multilingual, hybrid retrieval, recommended)
 
 ### **Document Processing**
 - **Docling**: Multi-format parsing (PDF, images)
@@ -268,16 +278,15 @@ rag-system/
 │   │   │   ├── langgraph_agent.py # LangGraph query classifier
 │   │   │   ├── prompts.py         # Classification prompts
 │   │   │   └── graph.py           # State graph definition
-│   │   ├── preprocessing/
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py            # BaseHandler abstract
-│   │   │   ├── pdf.py             # PDFHandler (Docling)
-│   │   │   ├── docx.py            # DocxHandler
-│   │   │   ├── image.py           # ImageHandler (OCR + Vision)
-│   │   │   ├── csv_handler.py     # CSVHandler
-│   │   │   ├── text.py            # TextHandler
-│   │   │   ├── chunker.py         # Document chunking
-│   │   │   └── pipeline.py        # Parse → Chunk → Embed pipeline
+│   │   ├── pdf_loader.py          # PDFLoaderService (LangChain)
+│   │   ├── docx_loader.py         # DOCXLoaderService (LangChain)
+│   │   ├── csv_loader.py          # CSVLoaderService (LangChain)
+│   │   ├── text_loader.py         # TextLoaderService (LangChain)
+│   │   ├── markdown_loader.py     # MarkdownLoaderService (LangChain)
+│   │   ├── url_loader.py          # URLLoaderService (LangChain)
+│   │   ├── gcs_loader.py          # GCSLoaderService (LangChain GCS integration)
+│   │   ├── file_validator.py      # FileValidatorService (security validations)
+│   │   ├── semantic_chunker.py    # SemanticChunkerService (LangChain semantic splitting)
 │   │   ├── embedding.py           # EmbeddingService
 │   │   ├── vectordb.py            # QdrantService
 │   │   ├── llm_client.py          # vLLM OpenAI client (async)
@@ -293,12 +302,15 @@ rag-system/
 │   ├── __init__.py
 │   ├── conftest.py                # Shared fixtures
 │   ├── unit/
-│   │   ├── test_preprocessing_pdf.py
-│   │   ├── test_preprocessing_docx.py
-│   │   ├── test_preprocessing_image.py
-│   │   ├── test_preprocessing_csv.py
-│   │   ├── test_preprocessing_text.py
-│   │   ├── test_chunker.py
+│   │   ├── test_pdf_loader_service.py
+│   │   ├── test_docx_loader.py
+│   │   ├── test_csv_loader_service.py
+│   │   ├── test_text_loader_service.py
+│   │   ├── test_markdown_loader.py
+│   │   ├── test_url_loader.py
+│   │   ├── test_gcs_loader.py
+│   │   ├── test_file_validator_service.py
+│   │   ├── test_semantic_chunker_service.py
 │   │   ├── test_embedding.py
 │   │   ├── test_query_router.py    # LangGraph classification tests
 │   │   ├── test_llm_client.py
@@ -386,14 +398,20 @@ rag-system/
 ```
 User → UI → NGINX → Orchestrator
                         ↓
-                  Preprocessing Pipeline
-                    ├─> Parse (Docling)
-                    ├─> Chunk (LangChain)
-                    └─> Embed (SentenceTransformers)
-                        ↓
-                    Qdrant (Store)
-                        ↓
-                    DVC (Version)
+                ┌───────┴────────┐
+                ↓                ↓
+    Store Raw Document      Preprocessing Pipeline
+    in GCS Bucket              ├─> Load (LangChain GCS Loader)
+                              ├─> Parse (Docling)
+                              ├─> Chunk (LangChain)
+                              └─> Embed (SentenceTransformers)
+                                  ↓
+                              Qdrant (Store Vectors + Metadata)
+                              - Vector embeddings
+                              - Document metadata in payload
+                              - GCS path reference
+                                  ↓
+                              DVC (Version Dataset)
 ```
 
 ### **Flow 2: Query/RAG (Conditional Routing)**

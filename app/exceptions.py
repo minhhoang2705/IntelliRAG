@@ -1,7 +1,4 @@
 """Custom exceptions for IntelliRAG application.
-
-Author: IntelliRAG Team
-Date: 2025-10-21
 """
 
 

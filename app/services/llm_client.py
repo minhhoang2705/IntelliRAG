@@ -2,9 +2,6 @@
 
 This module provides the LLMClientService for interfacing with vLLM
 via OpenAI-compatible API.
-
-Author: IntelliRAG Team  
-Date: 2025-10-17
 """
 
 from typing import Optional

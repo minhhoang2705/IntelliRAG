@@ -3,7 +3,7 @@
 This module provides the RAGPipelineService which coordinates embedding,
 retrieval, and generation to answer user queries.
 
-Author: IntelliRAG Team
+
 Date: 2025-10-17
 """
 

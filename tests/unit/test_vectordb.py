@@ -12,7 +12,7 @@ Test Coverage:
 Methodology: Test-Driven Development (TDD)
 Target Coverage: >85%
 
-Author: IntelliRAG Team
+
 Date: 2025-10-16
 """
 
@@ -58,7 +58,8 @@ class TestVectorDBServiceInstantiation:
         RED Phase: Will fail because api_key handling not implemented.
         """
         from app.services.vectordb import VectorDBService
-        service = VectorDBService(url="http://localhost:6333", api_key="secret")
+        service = VectorDBService(
+            url="http://localhost:6333", api_key="secret")
         assert service.api_key == "secret"
 
 
@@ -67,7 +68,7 @@ class TestVectorDBServiceCollectionManagement:
 
     @pytest.mark.asyncio
     async def test_vectordb_service_create_collection(self, mocker):
-        """Test creating a new collection with 768-d vectors.
+        """Test creating a new collection with 1024-d vectors.
 
         RED Phase: Will fail because create_collection method doesn't exist.
         """
@@ -75,11 +76,12 @@ class TestVectorDBServiceCollectionManagement:
         service = VectorDBService(url="http://localhost:6333")
 
         # Mock the client's create_collection to avoid actual Qdrant connection
-        mocker.patch.object(service.client, 'create_collection', return_value=None)
+        mocker.patch.object(
+            service.client, 'create_collection', return_value=None)
 
         success = await service.create_collection(
             collection_name="test_collection",
-            vector_size=768,
+            vector_size=1024,
             distance="cosine"
         )
 
@@ -97,18 +99,19 @@ class TestVectorDBServiceCollectionManagement:
         service = VectorDBService(url="http://localhost:6333")
 
         # Mock the client's create_collection method
-        mock_create = mocker.patch.object(service.client, 'create_collection', return_value=None)
+        mock_create = mocker.patch.object(
+            service.client, 'create_collection', return_value=None)
 
         await service.create_collection(
             collection_name="test_collection",
-            vector_size=768,
+            vector_size=1024,
             distance="cosine"
         )
 
         # Verify the client method was called with correct parameters
         mock_create.assert_called_once_with(
             collection_name="test_collection",
-            vectors_config=VectorParams(size=768, distance=Distance.COSINE)
+            vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
         )
 
     @pytest.mark.asyncio
@@ -124,7 +127,7 @@ class TestVectorDBServiceCollectionManagement:
         with pytest.raises(ValueError, match="Unsupported distance metric"):
             await service.create_collection(
                 collection_name="test_collection",
-                vector_size=768,
+                vector_size=1024,
                 distance="invalid_metric"
             )
 
@@ -139,7 +142,8 @@ class TestVectorDBServiceCollectionManagement:
         service = VectorDBService(url="http://localhost:6333")
 
         # Mock the client's collection_exists method
-        mocker.patch.object(service.client, 'collection_exists', return_value=True)
+        mocker.patch.object(
+            service.client, 'collection_exists', return_value=True)
 
         exists = await service.collection_exists("test_collection")
 
@@ -156,7 +160,8 @@ class TestVectorDBServiceCollectionManagement:
         service = VectorDBService(url="http://localhost:6333")
 
         # Mock the client's delete_collection method
-        mocker.patch.object(service.client, 'delete_collection', return_value=True)
+        mocker.patch.object(
+            service.client, 'delete_collection', return_value=True)
 
         success = await service.delete_collection("test_collection")
 
@@ -178,7 +183,8 @@ class TestVectorDBServiceCollectionManagement:
             "vectors_count": 100,
             "points_count": 100
         }
-        mocker.patch.object(service.client, 'get_collection', return_value=mock_info)
+        mocker.patch.object(service.client, 'get_collection',
+                            return_value=mock_info)
 
         info = await service.get_collection_info("test_collection")
 
@@ -202,8 +208,8 @@ class TestVectorDBServiceVectorOperations:
         # Mock the client's upsert method
         mocker.patch.object(service.client, 'upsert', return_value=None)
 
-        # Upsert a single 768-d vector
-        vector = [0.1] * 768
+        # Upsert a single 1024-d vector
+        vector = [0.1] * 1024
         metadata = {"text": "test document", "source": "test.pdf"}
 
         success = await service.upsert_vectors(
@@ -226,10 +232,11 @@ class TestVectorDBServiceVectorOperations:
         service = VectorDBService(url="http://localhost:6333")
 
         # Mock the client's upsert method
-        mock_upsert = mocker.patch.object(service.client, 'upsert', return_value=None)
+        mock_upsert = mocker.patch.object(
+            service.client, 'upsert', return_value=None)
 
         # Upsert a single vector
-        vector = [0.1] * 768
+        vector = [0.1] * 1024
         metadata = {"text": "test document"}
 
         await service.upsert_vectors(
@@ -253,18 +260,25 @@ class TestVectorDBServiceSearchOperations:
         RED Phase: Will fail because search_vectors method doesn't exist.
         """
         from app.services.vectordb import VectorDBService
+        from qdrant_client.models import ScoredPoint
 
         service = VectorDBService(url="http://localhost:6333")
 
-        # Mock search results
-        mock_results = [
-            {"id": "doc_1", "score": 0.95, "payload": {"text": "result 1"}},
-            {"id": "doc_2", "score": 0.85, "payload": {"text": "result 2"}}
+        # Mock search results with proper Qdrant response structure
+        mock_points = [
+            ScoredPoint(id="doc_1", score=0.95, payload={"text": "result 1"}, version=1, vector=None),
+            ScoredPoint(id="doc_2", score=0.85, payload={"text": "result 2"}, version=1, vector=None)
         ]
-        mocker.patch.object(service.client, 'search', return_value=mock_results)
+        
+        # Create a mock response object with points attribute
+        mock_response = mocker.MagicMock()
+        mock_response.points = mock_points
+        
+        mocker.patch.object(service.client, 'query_points',
+                            return_value=mock_response)
 
         # Search with a query vector
-        query_vector = [0.1] * 768
+        query_vector = [0.1] * 1024
         results = await service.search_vectors(
             collection_name="test_collection",
             query_vector=query_vector,
@@ -272,4 +286,4 @@ class TestVectorDBServiceSearchOperations:
         )
 
         assert len(results) == 2
-        assert results[0]["score"] == 0.95
+        assert results[0].score == 0.95

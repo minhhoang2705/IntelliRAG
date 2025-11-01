@@ -1,7 +1,7 @@
 """Embedding service for generating multilingual text embeddings.
 
 This module provides the EmbeddingService class for converting text chunks into
-768-dimensional dense vector embeddings using the paraphrase-multilingual-mpnet-base-v2
+1024-dimensional dense vector embeddings using the BAAI/bge-m3
 model from sentence-transformers.
 
 Key Features:
@@ -43,11 +43,11 @@ class EmbeddingService(BaseEmbeddingService):
         >>> service = EmbeddingService()
         >>> embedding = service.embed_single("Hello world")
         >>> len(embedding)
-        768
+        1024
     """
 
-    DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-    EMBEDDING_DIM = 768
+    DEFAULT_MODEL = "BAAI/bge-m3"
+    EMBEDDING_DIM = 1024
     MAX_BATCH_SIZE = 128
 
     def __init__(
@@ -59,7 +59,7 @@ class EmbeddingService(BaseEmbeddingService):
         """Initialize embedding service.
 
         Args:
-            model_id: HuggingFace model ID (default: paraphrase-multilingual-mpnet-base-v2)
+            model_id: HuggingFace model ID (default: BAAI/bge-m3)
             device: Device to load model on ("cpu" or "cuda", default: "cpu")
             max_batch_size: Maximum batch size to prevent OOM (default: 128)
         """
@@ -97,7 +97,7 @@ class EmbeddingService(BaseEmbeddingService):
         return self._model
 
     def get_embedding_dimension(self) -> int:
-        """Return embedding dimension (768 for mpnet-base-v2).
+        """Return embedding dimension (1024 for BGE-M3).
 
         Returns:
             int: Embedding dimension
@@ -111,13 +111,13 @@ class EmbeddingService(BaseEmbeddingService):
             text: Input text to embed
 
         Returns:
-            768-dimensional embedding vector as list of floats
+            1024-dimensional embedding vector as list of floats
 
         Example:
             >>> service = EmbeddingService()
             >>> embedding = service.embed_single("Hello world")
             >>> len(embedding)
-            768
+            1024
 
         Note:
             - Empty text returns zero vector
@@ -165,7 +165,7 @@ class EmbeddingService(BaseEmbeddingService):
             use_gpu: If True and CUDA available, temporarily use GPU for batch (default: False)
 
         Returns:
-            List of 768-dimensional embedding vectors
+            List of 1024-dimensional embedding vectors
 
         Example:
             >>> service = EmbeddingService()
@@ -173,7 +173,7 @@ class EmbeddingService(BaseEmbeddingService):
             >>> len(embeddings)
             2
             >>> len(embeddings[0])
-            768
+            1024
 
         Note:
             GPU usage is temporary - model is moved back to original device after batch.
@@ -244,7 +244,7 @@ class EmbeddingService(BaseEmbeddingService):
             text: Input text to embed
 
         Returns:
-            768-dimensional embedding vector
+            1024-dimensional embedding vector
 
         Note:
             This method runs the synchronous embedding in a thread pool executor
@@ -270,7 +270,7 @@ class EmbeddingService(BaseEmbeddingService):
             use_gpu: If True and CUDA available, use GPU for batch
 
         Returns:
-            List of 768-dimensional embedding vectors
+            List of 1024-dimensional embedding vectors
 
         Note:
             This method runs the synchronous batch embedding in a thread pool executor

@@ -70,8 +70,8 @@ class BaseEmbeddingService(ABC):
 
         Note:
             Dimension varies by model:
-            - mpnet-base-v2: 768
+            - bge-m3: 1024
             - CLIP ViT-B/32: 512
-            - Jina v2: 768
+            - Jina v2: 768 (legacy)
         """
         pass
