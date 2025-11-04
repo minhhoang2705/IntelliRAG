@@ -47,9 +47,13 @@ class Settings(BaseSettings):
     vllm_base_url: str = "http://localhost:8000/v1"
     vllm_model: str = "Qwen/Qwen3-0.6B"
 
-    # Embedding Model Configuration
+    # Embedding Service Configuration
+    embedding_service_url: str = "http://localhost:8001"
+    embedding_use_remote: bool = True  # Use remote embedding service by default
+
+    # Embedding Model Configuration (for local mode fallback)
     embedding_model: str = "BAAI/bge-m3"
-    embedding_dimension: int = 1024
+    embedding_dimension: int = 1024  # Note: Auto-discovered in remote mode
     embedding_device: str = "cpu"
     embedding_batch_size: int = 32
 

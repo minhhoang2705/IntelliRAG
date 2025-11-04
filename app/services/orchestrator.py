@@ -37,7 +37,9 @@ class OrchestratorService:
         llm_base_url: str = "http://localhost:8000/v1",
         llm_model: str = "Qwen/Qwen3-0.6B",
         gcs_project: str = "test-project",
-        gcs_bucket: str = "test-bucket"
+        gcs_bucket: str = "test-bucket",
+        embedding_service_url: str = "http://localhost:8001",
+        use_remote_embedding: bool = True
     ):
         """Initialize orchestrator with all required services.
 
@@ -47,11 +49,19 @@ class OrchestratorService:
             llm_model: LLM model name
             gcs_project: GCP project ID
             gcs_bucket: GCS bucket name
+            embedding_service_url: Embedding service URL (default: http://localhost:8001)
+            use_remote_embedding: Use remote embedding service (default: True)
         """
         logger.info("Initializing OrchestratorService...")
 
-        # Initialize services
-        self.embedding_service = EmbeddingService(device="cpu")
+        # Initialize embedding service (remote or local mode)
+        self.embedding_service = EmbeddingService(
+            use_remote=use_remote_embedding,
+            remote_url=embedding_service_url,
+            device="cpu"  # Only used in local mode
+        )
+
+        # Initialize other services
         self.vectordb_service = VectorDBService(url=vectordb_url)
         self.llm_client = LLMClientService(
             base_url=llm_base_url,
@@ -143,13 +153,14 @@ class OrchestratorService:
 
         # Use provided job_id or create a new one
         if job_id is None:
-            job_id = self.job_state_manager.create_job(file_path, collection_name)
-        
+            job_id = self.job_state_manager.create_job(
+                file_path, collection_name)
+
         self.job_state_manager.update_job_status(job_id, JobStatus.PROCESSING)
 
         # Start timing for end-to-end job duration
         job_start_time = time.time()
-        
+
         try:
             # Extract file type for metrics
             file_extension = extract_file_extension(file_path)
@@ -180,7 +191,8 @@ class OrchestratorService:
                 document_processing_stage_duration_seconds.labels(
                     stage='chunking', file_type=file_extension
                 ).observe(chunk_duration)
-                ingestion_chunks_created.labels(file_type=file_extension).observe(len(chunks))
+                ingestion_chunks_created.labels(
+                    file_type=file_extension).observe(len(chunks))
             except Exception as e:
                 ingestion_errors_total.labels(
                     error_type=type(e).__name__, stage='chunking'
@@ -211,7 +223,7 @@ class OrchestratorService:
                     vector_size=self.embedding_service.get_embedding_dimension(),
                     distance="cosine"
                 )
-            
+
             # Store vectors in database
             try:
                 start_time = time.time()
@@ -231,13 +243,12 @@ class OrchestratorService:
                 ).inc()
                 raise
 
-
             # Mark job as completed with progress and chunks info
             self.job_state_manager.update_job_status(
                 job_id, JobStatus.COMPLETED)
             self.job_state_manager.update_job_progress(
-                job_id, 
-                progress=100, 
+                job_id,
+                progress=100,
                 message=f"Ingestion completed successfully. Created {len(chunks)} chunks."
             )
             # Update chunks_created in job state
@@ -245,8 +256,9 @@ class OrchestratorService:
             if job:
                 job.chunks_created = len(chunks)
             else:
-                logger.warning(f"Job {job_id} not found in job state manager after completion")
-            
+                logger.warning(
+                    f"Job {job_id} not found in job state manager after completion")
+
             # Record successful job duration
             job_duration = time.time() - job_start_time
             ingestion_job_duration_seconds.labels(
@@ -260,7 +272,7 @@ class OrchestratorService:
             ingestion_job_duration_seconds.labels(
                 status='failed', file_type=file_extension
             ).observe(job_duration)
-            
+
             # Mark job as failed with error message
             self.job_state_manager.update_job_status(
                 job_id,

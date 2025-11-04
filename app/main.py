@@ -28,15 +28,23 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown."""
     global orchestrator
     # Startup
-    logger.info("Initializing IntelliRAG services...")
-    orchestrator = OrchestratorService(
-        vectordb_url="http://localhost:6333",
-        llm_base_url="http://localhost:8000/v1",
-        llm_model="Qwen/Qwen3-0.6B",
-        gcs_project=os.getenv("GCP_PROJECT_ID", "test-project"),
-        gcs_bucket=os.getenv("GCS_BUCKET_NAME", "test-bucket")
-    )
-    logger.info("IntelliRAG services initialized successfully")
+    if orchestrator is None:
+        logger.info("Initializing IntelliRAG services...")
+        orchestrator = OrchestratorService(
+            vectordb_url=os.getenv("QDRANT_URL", "http://localhost:6333"),
+            llm_base_url=os.getenv(
+                "VLLM_BASE_URL", "http://localhost:8000/v1"),
+            llm_model=os.getenv("VLLM_MODEL", "Qwen/Qwen3-0.6B"),
+            gcs_project=os.getenv("GCP_PROJECT_ID", "test-project"),
+            gcs_bucket=os.getenv("GCS_BUCKET_NAME", "test-bucket"),
+            embedding_service_url=os.getenv(
+                "EMBEDDING_SERVICE_URL", "http://localhost:8001"),
+            use_remote_embedding=os.getenv(
+                "EMBEDDING_USE_REMOTE", "true").lower() == "true"
+        )
+        logger.info("IntelliRAG services initialized successfully")
+    else:
+        logger.info("IntelliRAG services already initialized")
 
     yield  # Application runs here
 

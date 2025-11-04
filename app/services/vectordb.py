@@ -5,12 +5,12 @@ and retrieval operations in Qdrant vector database.
 
 Key Features:
 - Async operations with AsyncQdrantClient
-- Collection lifecycle management
+- Collection lifecycle management with dynamic dimensions
 - Batch vector upsert with rich metadata
 - Similarity search with filtering
-- 1024-dimensional vector support (matching EmbeddingService)
+- Auto-detection of embedding dimensions from EmbeddingService
 
-Date: 2025-10-16
+Date: 2025-11-04 (Updated for dynamic dimensions)
 """
 
 from typing import Optional, List, Dict, Any
@@ -26,7 +26,7 @@ class VectorDBService:
     """Service for managing vector storage in Qdrant.
 
     This service provides async operations for storing and retrieving
-    1024-dimensional embeddings in Qdrant vector database.
+    embeddings in Qdrant vector database with dynamic dimension support.
 
     Attributes:
         url (str): Qdrant server URL
@@ -35,7 +35,9 @@ class VectorDBService:
 
     Example:
         >>> service = VectorDBService(url="http://localhost:6333")
-        >>> # Use async methods for operations
+        >>> await service.ensure_collection_with_embeddings(
+        ...     "my_collection", embedding_service
+        ... )
     """
 
     def __init__(self, url: str, api_key: Optional[str] = None):
@@ -122,7 +124,7 @@ class VectorDBService:
         # Generate UUIDs if ids not provided
         if ids is None:
             ids = [str(uuid.uuid4()) for _ in range(len(vectors))]
-        
+
         points = [
             PointStruct(
                 id=point_id,
@@ -186,7 +188,7 @@ class VectorDBService:
                     "sparse_embedding": sparse_vec  # Store sparse in payload
                 }
             )
-            for point_id, dense_vec, sparse_vec, payload 
+            for point_id, dense_vec, sparse_vec, payload
             in zip(ids, dense_vectors, sparse_vectors, payloads)
         ]
 
@@ -231,14 +233,14 @@ class VectorDBService:
             query=query_dense,
             limit=limit * 2  # Get more candidates for re-ranking
         )
-        
+
         # Step 2: Calculate sparse similarity and combine scores
         results_with_hybrid_score = []
-        
+
         for point in dense_response.points:
             # Get dense score (already calculated by Qdrant)
             dense_score = point.score
-            
+
             # Calculate sparse similarity
             if "sparse_embedding" in point.payload:
                 doc_sparse = point.payload["sparse_embedding"]
@@ -247,17 +249,17 @@ class VectorDBService:
                 )
             else:
                 sparse_score = 0.0
-            
+
             # Combine scores with alpha weighting
             hybrid_score = alpha * dense_score + (1 - alpha) * sparse_score
-            
+
             # Create new result with hybrid score
             point.score = hybrid_score  # Update score
             results_with_hybrid_score.append(point)
-        
+
         # Step 3: Re-rank by hybrid score and return top K
         results_with_hybrid_score.sort(key=lambda x: x.score, reverse=True)
-        
+
         return results_with_hybrid_score[:limit]
 
     def _calculate_sparse_similarity(
@@ -279,27 +281,27 @@ class VectorDBService:
         """
         query_indices = set(query_sparse["indices"])
         doc_indices = set(doc_sparse["indices"])
-        
+
         # Find overlapping indices
         overlap = query_indices.intersection(doc_indices)
-        
+
         if not overlap:
             return 0.0
-        
+
         # Calculate dot product on overlapping terms
         query_dict = {idx: val for idx, val in zip(
             query_sparse["indices"], query_sparse["values"])}
         doc_dict = {idx: val for idx, val in zip(
             doc_sparse["indices"], doc_sparse["values"])}
-        
+
         dot_product = sum(
-            query_dict[idx] * doc_dict[idx] 
+            query_dict[idx] * doc_dict[idx]
             for idx in overlap
         )
-        
+
         # Normalize (optional, helps keep scores in 0-1 range)
         # Using simple normalization by max possible overlap
         max_score = max(len(query_indices), len(doc_indices))
         normalized_score = dot_product / max_score if max_score > 0 else 0.0
-        
+
         return normalized_score

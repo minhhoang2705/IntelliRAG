@@ -20,27 +20,45 @@ from sentence_transformers import SentenceTransformer
 import logging
 import torch
 import threading
+import httpx
 
 logger = logging.getLogger(__name__)
 
 
 class EmbeddingService(BaseEmbeddingService):
-    """Service for generating multilingual text embeddings using SentenceTransformers.
+    """Service for generating multilingual text embeddings.
 
-    Supports GPU/CPU hybrid operation:
-    - CPU (default): For real-time single queries (~25ms per query)
-    - GPU: For batch processing (enabled via use_gpu parameter)
+    Supports two modes:
+    1. Remote mode (default): Calls external embedding service via HTTP
+    2. Local mode: Loads SentenceTransformer model in-process
 
-    Future-proofed for multimodal embeddings (Phase 2).
+    Remote mode benefits:
+    - No cold start delay (model always loaded)
+    - Independent scaling
+    - Consistent with LLM service architecture
+
+    Local mode benefits:
+    - No network latency
+    - Backward compatibility
+    - Useful for testing
 
     Attributes:
-        model_id (str): HuggingFace model identifier
-        device (str): Device for model execution ("cpu" or "cuda")
+        use_remote (bool): If True, use remote service; if False, use local model
+        remote_url (str): URL of remote embedding service
+        model_id (str): HuggingFace model identifier (local mode only)
+        device (str): Device for model execution (local mode only)
         max_batch_size (int): Maximum batch size to prevent OOM
-        _model (SentenceTransformer): Lazy-loaded model instance
+        _model (SentenceTransformer): Lazy-loaded model instance (local mode only)
+        _model_info_cache (dict): Cached model info from remote service
 
-    Example:
-        >>> service = EmbeddingService()
+    Example (Remote mode):
+        >>> service = EmbeddingService(use_remote=True)
+        >>> embedding = service.embed_single("Hello world")
+        >>> len(embedding)
+        1024
+
+    Example (Local mode):
+        >>> service = EmbeddingService(use_remote=False)
         >>> embedding = service.embed_single("Hello world")
         >>> len(embedding)
         1024
@@ -54,20 +72,37 @@ class EmbeddingService(BaseEmbeddingService):
         self,
         model_id: Optional[str] = None,
         device: str = "cpu",
-        max_batch_size: int = MAX_BATCH_SIZE
+        max_batch_size: int = MAX_BATCH_SIZE,
+        use_remote: bool = False,
+        remote_url: str = "http://localhost:8001"
     ):
         """Initialize embedding service.
 
         Args:
-            model_id: HuggingFace model ID (default: BAAI/bge-m3)
-            device: Device to load model on ("cpu" or "cuda", default: "cpu")
+            model_id: HuggingFace model ID (default: BAAI/bge-m3) - local mode only
+            device: Device to load model on ("cpu" or "cuda", default: "cpu") - local mode only
             max_batch_size: Maximum batch size to prevent OOM (default: 128)
+            use_remote: If True, use remote service; if False, use local model (default: False for backward compatibility)
+            remote_url: URL of remote embedding service (default: http://localhost:8001)
         """
-        self.model_id = model_id or self.DEFAULT_MODEL
-        self.device = device
+        self.use_remote = use_remote
+        self.remote_url = remote_url
         self.max_batch_size = max_batch_size
-        self._model = None  # Lazy loading
-        self._model_lock = threading.Lock()  # Thread-safe model loading
+        self._model_info_cache = None  # Cache for remote model info
+
+        if not use_remote:
+            # Local mode - initialize model loading
+            self.model_id = model_id or self.DEFAULT_MODEL
+            self.device = device
+            self._model = None  # Lazy loading
+            self._model_lock = threading.Lock()  # Thread-safe model loading
+        else:
+            # Remote mode - model info will be fetched lazily on first use
+            self.model_id = None
+            self.device = None
+            self._model = None
+            self._model_lock = None
+            logger.info(f"Using remote embedding service at {remote_url}")
 
     @property
     def model(self) -> SentenceTransformer:
@@ -97,12 +132,72 @@ class EmbeddingService(BaseEmbeddingService):
         return self._model
 
     def get_embedding_dimension(self) -> int:
-        """Return embedding dimension (1024 for BGE-M3).
+        """Return embedding dimension.
 
         Returns:
             int: Embedding dimension
+
+        Note:
+            In remote mode, fetches dimension from model-info endpoint.
+            In local mode, returns constant EMBEDDING_DIM.
         """
-        return self.EMBEDDING_DIM
+        if self.use_remote:
+            model_info = self._fetch_model_info()
+            return model_info["embedding_dimension"]
+        else:
+            return self.EMBEDDING_DIM
+
+    def get_model_name(self) -> str:
+        """Get the actual model name being used.
+
+        Returns:
+            str: Model name
+
+        Note:
+            In remote mode, fetches from model-info endpoint.
+            In local mode, returns model_id.
+        """
+        if self.use_remote:
+            model_info = self._fetch_model_info()
+            return model_info["model_name"]
+        else:
+            return self.model_id
+
+    def _fetch_model_info(self) -> dict:
+        """Fetch model metadata from remote service.
+
+        Returns:
+            dict: Model metadata with keys: model_name, embedding_dimension, device, etc.
+
+        Raises:
+            RuntimeError: If service cannot be reached
+
+        Note:
+            Response is cached to avoid repeated HTTP calls.
+        """
+        if self._model_info_cache is not None:
+            return self._model_info_cache
+
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(f"{self.remote_url}/model-info")
+                response.raise_for_status()
+                self._model_info_cache = response.json()
+
+                logger.info(
+                    f"Connected to embedding service: "
+                    f"{self._model_info_cache['model_name']} "
+                    f"({self._model_info_cache['embedding_dimension']} dims)"
+                )
+                return self._model_info_cache
+
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch model info from {self.remote_url}: {e}")
+            raise RuntimeError(
+                f"Cannot connect to embedding service at {self.remote_url}. "
+                "Is the service running?"
+            ) from e
 
     def embed_single(self, text: str) -> List[float]:
         """Generate embedding for single text.
@@ -111,41 +206,46 @@ class EmbeddingService(BaseEmbeddingService):
             text: Input text to embed
 
         Returns:
-            1024-dimensional embedding vector as list of floats
+            Embedding vector as list of floats (dimension depends on model)
 
         Example:
-            >>> service = EmbeddingService()
+            >>> service = EmbeddingService(use_remote=True)
             >>> embedding = service.embed_single("Hello world")
             >>> len(embedding)
             1024
 
         Note:
+            - Remote mode: Calls /vectorize endpoint
+            - Local mode: Uses in-process model
             - Empty text returns zero vector
-            - Supports 50+ languages (multilingual model)
-            - First call loads model (~20-30s), subsequent calls are fast
         """
-        import time
+        if self.use_remote:
+            # Remote mode - call service
+            return self._embed_remote([text])[0]
+        else:
+            # Local mode - use in-process model
+            import time
 
-        # Handle empty text
-        if not text:
-            return [0.0] * self.EMBEDDING_DIM
+            # Handle empty text
+            if not text:
+                return [0.0] * self.EMBEDDING_DIM
 
-        start_time = time.time()
+            start_time = time.time()
 
-        # Generate embedding using the model
-        embedding = self.model.encode(text, convert_to_numpy=True)
+            # Generate embedding using the model
+            embedding = self.model.encode(text, convert_to_numpy=True)
 
-        duration = time.time() - start_time
-        logger.info(
-            "Generated single embedding",
-            extra={'extra_data': {
-                'text_length': len(text),
-                'embedding_dim': len(embedding),
-                'duration_seconds': round(duration, 3)
-            }}
-        )
+            duration = time.time() - start_time
+            logger.info(
+                "Generated single embedding",
+                extra={'extra_data': {
+                    'text_length': len(text),
+                    'embedding_dim': len(embedding),
+                    'duration_seconds': round(duration, 3)
+                }}
+            )
 
-        return embedding.tolist()
+            return embedding.tolist()
 
     def embed_batch(
         self,
@@ -155,87 +255,90 @@ class EmbeddingService(BaseEmbeddingService):
         show_progress: bool = False,
         use_gpu: bool = False
     ) -> List[List[float]]:
-        """Generate embeddings for batch of texts with GPU/CPU hybrid support.
+        """Generate embeddings for batch of texts.
 
         Args:
             texts: List of texts to embed
             batch_size: Batch size for processing (default: None uses max_batch_size)
             normalize: Whether to L2-normalize embeddings (default: False)
-            show_progress: Show progress bar (default: False)
-            use_gpu: If True and CUDA available, temporarily use GPU for batch (default: False)
+            show_progress: Show progress bar (default: False) - local mode only
+            use_gpu: If True and CUDA available, temporarily use GPU for batch (default: False) - local mode only
 
         Returns:
-            List of 1024-dimensional embedding vectors
+            List of embedding vectors
 
         Example:
-            >>> service = EmbeddingService()
+            >>> service = EmbeddingService(use_remote=True)
             >>> embeddings = service.embed_batch(["Hello", "World"])
             >>> len(embeddings)
             2
-            >>> len(embeddings[0])
-            1024
 
         Note:
-            GPU usage is temporary - model is moved back to original device after batch.
-            This allows GPU acceleration for batch ingestion while keeping CPU free for queries.
+            - Remote mode: Calls /vectorize endpoint
+            - Local mode: GPU usage is temporary - model is moved back to original device after batch
         """
-        import time
+        if self.use_remote:
+            # Remote mode - call service
+            return self._embed_remote(texts, normalize=normalize)
+        else:
+            # Local mode - use in-process model
+            import time
 
-        if not texts:
-            return []
+            if not texts:
+                return []
 
-        start_time = time.time()
-        original_device = self.device
-        actual_batch_size = batch_size or self.max_batch_size
+            start_time = time.time()
+            original_device = self.device
+            actual_batch_size = batch_size or self.max_batch_size
 
-        # Determine device for this operation
-        target_device = "cuda" if (
-            use_gpu and torch.cuda.is_available()) else self.device
+            # Determine device for this operation
+            target_device = "cuda" if (
+                use_gpu and torch.cuda.is_available()) else self.device
 
-        try:
-            # Temporarily move model to GPU if requested
-            if target_device != original_device:
+            try:
+                # Temporarily move model to GPU if requested
+                if target_device != original_device:
+                    logger.info(
+                        f"Temporarily moving model to {target_device} for batch processing")
+                    self.model.to(target_device)
+
+                # Process in sub-batches if needed to prevent OOM
+                all_embeddings = []
+                for i in range(0, len(texts), actual_batch_size):
+                    sub_batch = texts[i:i + actual_batch_size]
+
+                    embeddings = self.model.encode(
+                        sub_batch,
+                        batch_size=actual_batch_size,
+                        show_progress_bar=show_progress,
+                        normalize_embeddings=normalize,
+                        convert_to_numpy=True,
+                        device=target_device
+                    )
+
+                    all_embeddings.extend(embeddings)
+
+                duration = time.time() - start_time
                 logger.info(
-                    f"Temporarily moving model to {target_device} for batch processing")
-                self.model.to(target_device)
-
-            # Process in sub-batches if needed to prevent OOM
-            all_embeddings = []
-            for i in range(0, len(texts), actual_batch_size):
-                sub_batch = texts[i:i + actual_batch_size]
-
-                embeddings = self.model.encode(
-                    sub_batch,
-                    batch_size=actual_batch_size,
-                    show_progress_bar=show_progress,
-                    normalize_embeddings=normalize,
-                    convert_to_numpy=True,
-                    device=target_device
+                    f"Generated batch embeddings for {len(texts)} texts",
+                    extra={'extra_data': {
+                        'batch_size': len(texts),
+                        'sub_batch_size': actual_batch_size,
+                        'vectors_per_second': round(len(texts) / duration, 2),
+                        'duration_seconds': round(duration, 3),
+                        'normalized': normalize,
+                        'device': target_device,
+                        'gpu_accelerated': target_device == "cuda"
+                    }}
                 )
 
-                all_embeddings.extend(embeddings)
+                return [emb.tolist() for emb in all_embeddings]
 
-            duration = time.time() - start_time
-            logger.info(
-                f"Generated batch embeddings for {len(texts)} texts",
-                extra={'extra_data': {
-                    'batch_size': len(texts),
-                    'sub_batch_size': actual_batch_size,
-                    'vectors_per_second': round(len(texts) / duration, 2),
-                    'duration_seconds': round(duration, 3),
-                    'normalized': normalize,
-                    'device': target_device,
-                    'gpu_accelerated': target_device == "cuda"
-                }}
-            )
-
-            return [emb.tolist() for emb in all_embeddings]
-
-        finally:
-            # Always restore original device
-            if target_device != original_device:
-                logger.info(f"Restoring model to {original_device}")
-                self.model.to(original_device)
+            finally:
+                # Always restore original device
+                if target_device != original_device:
+                    logger.info(f"Restoring model to {original_device}")
+                    self.model.to(original_device)
 
     async def embed_single_async(self, text: str) -> List[float]:
         """Async version of embed_single.
@@ -283,3 +386,38 @@ class EmbeddingService(BaseEmbeddingService):
             lambda: self.embed_batch(
                 texts, batch_size, normalize, False, use_gpu)
         )
+
+    def _embed_remote(self, texts: List[str], normalize: bool = False) -> List[List[float]]:
+        """Call remote embedding service via HTTP.
+
+        Args:
+            texts: List of texts to embed
+            normalize: Whether to L2-normalize embeddings
+
+        Returns:
+            List of embedding vectors
+
+        Raises:
+            RuntimeError: If remote service call fails
+        """
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    f"{self.remote_url}/vectorize",
+                    json={"texts": texts, "normalize": normalize}
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                # Log dimension info for debugging
+                logger.debug(
+                    f"Received {result['count']} embeddings of "
+                    f"{result['dimension']} dimensions from {result['model']}"
+                )
+
+                return result["embeddings"]
+
+        except Exception as e:
+            logger.error(f"Remote embedding failed: {e}")
+            raise RuntimeError(
+                f"Failed to get embeddings from remote service: {e}") from e
