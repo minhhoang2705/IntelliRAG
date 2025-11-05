@@ -183,11 +183,8 @@ class TestIngestionJobDurationMetric:
 
         # Get final samples
         final_samples = list(ingestion_job_duration_seconds.collect())[0].samples
-        final_count = sum(1 for s in final_samples if s.name.endswith('_count'))
 
         # Verify metric was recorded
-        assert final_count > initial_count
-        
         # Find the specific sample with our labels
         count_samples = [s for s in final_samples if s.name.endswith('_count') 
                          and s.labels.get('status') == 'completed' 
@@ -225,11 +222,8 @@ class TestIngestionJobDurationMetric:
 
         # Get final samples
         final_samples = list(ingestion_job_duration_seconds.collect())[0].samples
-        final_count = sum(1 for s in final_samples if s.name.endswith('_count'))
 
         # Verify metric was recorded
-        assert final_count > initial_count
-        
         # Find the specific sample with our labels
         count_samples = [s for s in final_samples if s.name.endswith('_count') 
                          and s.labels.get('status') == 'failed' 

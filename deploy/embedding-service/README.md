@@ -41,17 +41,31 @@ EMBEDDING_MODEL=BAAI/bge-m3
 # EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2  # 384 dimensions
 # EMBEDDING_MODEL=BAAI/bge-large-en-v1.5                  # 1024 dimensions
 # EMBEDDING_MODEL=intfloat/e5-large-v2                    # 1024 dimensions
+# EMBEDDING_MODEL=google/embeddinggemma-300m              # 256 dimensions (GATED - requires HF token)
 
 # Device
 DEVICE=cpu  # or 'cuda'
 
 # Batch size
 MAX_BATCH_SIZE=128
+
+# HuggingFace token (required for gated models like google/embeddinggemma-300m)
+HF_TOKEN=your_token_here  # Get from https://huggingface.co/settings/tokens
 ```
 
-Then restart:
+### Using Gated Models (e.g., google/embeddinggemma-300m)
+
+Some models require HuggingFace authentication:
+
+1. **Request Access**: Visit the model page (e.g., https://huggingface.co/google/embeddinggemma-300m) and click "Request Access"
+2. **Get Token**: Create a token at https://huggingface.co/settings/tokens (with "Read" access)
+3. **Add to .env**: Set `HF_TOKEN=your_actual_token` in your `.env` file
+4. **Rebuild**: Rebuild the container to apply changes
+
 ```bash
+# Rebuild with new configuration
 docker-compose down
+docker-compose build --no-cache
 docker-compose up -d
 ```
 

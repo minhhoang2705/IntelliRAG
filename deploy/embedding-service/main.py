@@ -20,6 +20,10 @@ import logging
 import time
 import torch
 import os
+from huggingface_hub import login  
+from dotenv import load_dotenv
+
+load_dotenv("../../.env")
 
 # Configure logging
 logging.basicConfig(
@@ -36,6 +40,7 @@ model_metadata: dict = {}
 MODEL_NAME = os.getenv("EMBEDDING_MODEL", "google/embeddinggemma-300m")
 DEVICE = os.getenv("DEVICE", "cpu")
 MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "32"))
+HF_TOKEN = os.getenv("HF_TOKEN", None)
 
 
 @asynccontextmanager
@@ -49,6 +54,12 @@ async def lifespan(app: FastAPI):
     start_time = time.time()
 
     try:
+        # Login to HuggingFace if token is provided (for gated models)
+        if HF_TOKEN:
+            logger.info("🔐 Authenticating with HuggingFace...")
+            login(token=HF_TOKEN, add_to_git_credential=False)
+            logger.info("✅ HuggingFace authentication successful")
+
         # Load model
         model = SentenceTransformer(MODEL_NAME)
         model.to(DEVICE)

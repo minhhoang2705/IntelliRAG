@@ -22,18 +22,27 @@ services:
   embedding-service:
     build: ./deploy/embedding-service
     container_name: intellirag-embedding
+    runtime: nvidia  # Enable NVIDIA GPU support
     ports:
       - "8001:8001"
     environment:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-m3}
       - DEVICE=${DEVICE:-cpu}
       - MAX_BATCH_SIZE=${MAX_BATCH_SIZE:-128}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
     deploy:
       resources:
         limits:
           memory: 4G
         reservations:
           memory: 2G
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -48,6 +57,34 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+  
+  qwen3-llm:
+    image: vllm/vllm-openai:latest
+    container_name: qwen3-llm
+    ports:
+      - "8000:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    command: >
+      --model Qwen/Qwen3-0.6B
+      --gpu-memory-utilization 0.5
+      --enable-lora
+      --dtype bfloat16
+      --use-tqdm-on-load
+      --max-model-len 2048
+      --block-size 32
+      --cpu-offload-gb 2
+      --swap-space 8
+      --enable-prefix-caching
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
 
 volumes:
   qdrant_data:
