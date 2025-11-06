@@ -95,9 +95,6 @@ Welcome to the IntelliRAG documentation! This guide helps you navigate all proje
 
 **Phase 2 Documentation:**
 - 📄 [Query Router FINAL STATUS](./phase-2/query-router-FINAL-STATUS.md) - ✅ Complete implementation (26/26 tests passing)
-- 📄 [Implementation Progress](./phase-2/query-router-implementation-progress.md) - Initial progress tracking
-- 📄 [Completion Summary](./phase-2/query-router-completion-summary.md) - Day 1-2 completion summary
-- 📄 [Day 2 Progress](./phase-2/query-router-progress-day2.md) - Detailed day 2 implementation log
 
 **Achievements:**
 - ✅ **QueryClassifier**: LLM-based query classification (4 types: RAG, DIRECT, CLARIFICATION, MULTI_HOP)
@@ -118,16 +115,20 @@ tests/unit/
 └── test_query_graph.py        # 21 tests (including E2E)
 ```
 
+**Archived Phase 2 Documentation:**
+- 📁 [Phase 2 Implementation History](./archived/phase-2/) - Historical implementation progress and completion summaries
+
 ---
 
 ## 📊 Summaries
 
 **Recent Implementation Summaries:**
 - 📄 [Phase 4 RAG Pipeline](./summaries/phase4-rag-pipeline.md) - RAG pipeline implementation summary
-- 📄 [Integration Test Summary (2025-10-17)](./summaries/integration-test-summary-20251017.md) - Latest integration test results
+- 📄 [Observability Fixes Summary](./observability-fixes-summary.md) - Observability instrumentation fixes (2025-10-30)
 
 **Archived Summaries:**
-- 📁 [Archived Summaries](./summaries/archived/) - Historical phase summaries and older test reports
+- 📁 [2025 Summaries Archive](./archived/summaries-2025/) - Historical implementation summaries from 2025
+- 📁 [Older Archived Summaries](./summaries/archived/) - Historical phase summaries and older test reports
 
 ---
 
@@ -163,7 +164,10 @@ tests/unit/
 ## 🗄️ Archived
 
 **Historical Documentation:**
-- 📁 [Old Plans](./archived/old-plans/) - Superseded implementation plans
+- 📁 [2025 Plans Archive](./archived/plans-2025/) - Superseded implementation plans from 2025
+- 📁 [Phase 2 Archive](./archived/phase-2/) - Phase 2 implementation history and progress logs
+- 📁 [2025 Summaries Archive](./archived/summaries-2025/) - Historical implementation summaries from 2025
+- 📁 [Old Plans](./archived/old-plans/) - Older superseded implementation plans
   - Vector Database Implementation Plan (2025-10-14)
   - Phase 3 Integration Testing Plan (2025-10-17)
 
@@ -226,5 +230,5 @@ When adding new documentation:
 
 ---
 
-**Last Updated**: 2025-10-26  
+**Last Updated**: 2025-11-06  
 **Maintained By**: IntelliRAG Development Team

@@ -48,7 +48,7 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - `Field()` for strict mode and constraints
   - Nested model validation
 
-### **API Gateway & Load Balancing**
+### **API Gateway & Load Balancing** [PLANNED - Not Yet Deployed]
 - **NGINX** 
   - API Gateway with authentication
   - Rate limiting
@@ -113,7 +113,7 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - State management for complex queries
   - Graph-based agent orchestration
 
-### **MLOps & Versioning**
+### **MLOps & Versioning** [PLANNED - Not Yet Implemented]
 - **MLFlow**: Model registry and versioning
   - Model tracking
   - Experiment management
@@ -135,11 +135,15 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - Answer relevance
 
 ### **Infrastructure**
-- **Kubernetes**: GKE Autopilot
-- **Helm**: Application deployment
-  - Helmfile for multi-chart management
-- **Terraform**: IaC for GKE provisioning
-- **HPA**: Horizontal Pod Autoscaler for FastAPI services
+- **Kubernetes**: Local development ready, GKE deployment planned
+  - KServe configurations for model serving
+  - Observability stack helmfiles
+  - Namespace configurations
+- **Helm**: Helmfile for multi-chart management [IMPLEMENTED]
+  - Observability stack (Prometheus, Grafana, Jaeger, Loki)
+  - KServe inference services
+- **Terraform**: IaC for GKE provisioning [PLANNED - Not Yet Implemented]
+- **HPA**: Horizontal Pod Autoscaler [PLANNED - Not Yet Deployed]
 
 ### **Inference Performance**
 - **vLLM Optimizations**:
@@ -165,22 +169,23 @@ The high-level architecture can be seen at this path `./images/high_level_archit
     - Model versioning via S3/GCS storage
 
 ### **Observability Stack**
-- **Prometheus**: Metrics collection
-  - Service metrics
-  - Custom application metrics
-  - Resource utilization
-- **Grafana**: Visualization dashboards
-  - System monitoring
-  - Application metrics
-  - Alerting
-- **Jaeger/Tempo**: Distributed tracing
-  - Request flow tracking
-  - Performance bottleneck identification
-- **Loki/ELK**: Centralized logging
-  - Application logs
-  - Error tracking
-  - Audit trails
-- **Evidently**: Data drift monitoring
+- **Prometheus**: Metrics collection [IMPLEMENTED]
+  - 19+ custom application metrics
+  - Service metrics instrumentation
+  - Resource utilization tracking
+- **Grafana**: Visualization dashboards [IMPLEMENTED]
+  - 5 production dashboards (infrastructure, ingestion, overview, LLM, query performance)
+  - Alerting rules configured
+  - System and application monitoring
+- **Jaeger/Tempo**: Distributed tracing [PARTIALLY IMPLEMENTED]
+  - OpenTelemetry instrumentation in code
+  - Kubernetes deployment ready
+  - Needs integration validation
+- **Loki**: Centralized logging [PARTIALLY IMPLEMENTED]
+  - Structured JSON logging implemented
+  - Kubernetes deployment ready
+  - Needs integration validation
+- **Evidently**: Data drift monitoring [PLANNED - Not Yet Implemented]
   - Input distribution shifts
   - Model performance degradation
   - Feature drift detection
@@ -267,17 +272,22 @@ rag-system/
 │   │   │   └── query.py           # POST /api/v1/query (RAG endpoint)
 │   │   └── middleware/
 │   │       ├── __init__.py
-│   │       ├── tracing.py         # Jaeger integration
-│   │       ├── logging.py         # Structured logging
 │   │       └── metrics.py         # Prometheus metrics
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── tracing.py             # OpenTelemetry/Jaeger integration
+│   │   ├── logging.py             # Structured JSON logging
+│   │   └── correlation.py         # Request correlation IDs
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── orchestrator.py        # Main orchestration logic
+│   │   ├── job_state.py           # Job state management
 │   │   ├── query_router/
 │   │   │   ├── __init__.py
-│   │   │   ├── langgraph_agent.py # LangGraph query classifier
+│   │   │   ├── classifier.py      # LangGraph query classifier
 │   │   │   ├── prompts.py         # Classification prompts
 │   │   │   └── graph.py           # State graph definition
+│   │   ├── query_router_service.py # Query router service wrapper
 │   │   ├── pdf_loader.py          # PDFLoaderService (LangChain)
 │   │   ├── docx_loader.py         # DOCXLoaderService (LangChain)
 │   │   ├── csv_loader.py          # CSVLoaderService (LangChain)
@@ -285,16 +295,15 @@ rag-system/
 │   │   ├── markdown_loader.py     # MarkdownLoaderService (LangChain)
 │   │   ├── url_loader.py          # URLLoaderService (LangChain)
 │   │   ├── gcs_loader.py          # GCSLoaderService (LangChain GCS integration)
+│   │   ├── gcs_storage.py         # GCS storage operations
 │   │   ├── file_validator.py      # FileValidatorService (security validations)
 │   │   ├── semantic_chunker.py    # SemanticChunkerService (LangChain semantic splitting)
-│   │   ├── embedding.py           # EmbeddingService
+│   │   ├── base_embedding.py      # Base embedding interface
+│   │   ├── bge_m3_embedding.py    # BGE-M3 embedding implementation
+│   │   ├── embedding.py           # EmbeddingService (legacy/wrapper)
 │   │   ├── vectordb.py            # QdrantService
 │   │   ├── llm_client.py          # vLLM OpenAI client (async)
-│   │   ├── rag_pipeline.py        # Retrieve → Generate pipeline
-│   │   └── monitoring/
-│   │       ├── __init__.py
-│   │       ├── drift_detector.py  # Evidently integration
-│   │       └── metrics.py         # Custom metrics
+│   │   └── rag_pipeline.py        # Retrieve → Generate pipeline
 │   └── models/
 │       ├── __init__.py
 │       └── schemas.py             # Pydantic models
@@ -331,25 +340,28 @@ rag-system/
 │       ├── sample.txt
 │       └── sample.jpg
 ├── kubernetes/
-│   ├── helm/
-│   │   ├── intellirag/           # Main application chart
-│   │   │   ├── Chart.yaml
-│   │   │   ├── values.yaml
-│   │   │   └── templates/
-│   │   │       ├── deployment.yaml
-│   │   │       ├── service.yaml
-│   │   │       ├── hpa.yaml
-│   │   │       ├── ingress.yaml  # NGINX ingress
-│   │   │       └── configmap.yaml
-│   │   ├── kserve/               # Model serving
-│   │   │   └── inferenceservice.yaml
-│   │   ├── qdrant/               # Vector DB
-│   │   ├── monitoring/           # Prometheus, Grafana, Jaeger, Loki
-│   │   └── helmfile.yaml         # Manage all charts
-│   └── manifests/
-│       └── namespace.yaml
-├── terraform/
-│   ├── main.tf                   # GKE cluster
+│   ├── kserve/                   # KServe model serving
+│   │   ├── namespace.yaml
+│   │   ├── embedding-bge-m3-inference.yaml
+│   │   ├── vllm-qwen-inference.yaml
+│   │   └── README.md
+│   └── observability/            # Observability stack
+│       ├── namespace.yaml
+│       ├── helmfile.yaml         # Manage all observability charts
+│       ├── prometheus/
+│       │   ├── helmfile.yaml
+│       │   └── values.yaml
+│       ├── grafana/
+│       │   ├── helmfile.yaml
+│       │   └── values.yaml
+│       ├── jaeger/
+│       │   ├── helmfile.yaml
+│       │   └── values.yaml
+│       └── loki/
+│           ├── helmfile.yaml
+│           └── values.yaml
+├── terraform/                    # [PLANNED - Not Yet Implemented]
+│   ├── main.tf                   # GKE cluster provisioning
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── modules/
@@ -357,27 +369,46 @@ rag-system/
 │       ├── networking/
 │       └── iam/
 ├── observability/
-│   ├── prometheus/
-│   │   └── rules.yaml            # Alert rules
-│   ├── grafana/
-│   │   └── dashboards/
-│   │       ├── system.json
-│   │       ├── application.json
-│   │       └── rag-metrics.json
-│   └── evidently/
-│       └── reports/
-├── mlops/
+│   └── grafana/
+│       ├── alerts/
+│       │   └── alerting-rules.yaml
+│       └── provisioning/
+│           ├── dashboards/
+│           │   ├── dashboards.yaml
+│           │   └── json/
+│           │       ├── infrastructure.json
+│           │       ├── ingestion-pipeline.json
+│           │       ├── intellirag-overview.json
+│           │       ├── llm-metrics.json
+│           │       └── query-performance.json
+│           └── datasources/
+│               └── datasources.yaml
+├── mlops/                        # [PLANNED - Not Yet Implemented]
 │   ├── mlflow/
 │   │   └── models/               # Model artifacts
 │   └── dvc/
 │       ├── .dvc/
 │       └── data.dvc              # Data versioning
 ├── docs/
-│   ├── architecture.md
-│   ├── api-spec.md
-│   ├── deployment.md
-│   └── monitoring.md
-├── .github/
+│   ├── README.md                 # Documentation hub
+│   ├── architecture/             # Architecture docs
+│   ├── deployment/               # Deployment guides
+│   ├── guides/                   # Developer guides
+│   ├── infrastructure/           # MLOps and observability
+│   ├── planning/                 # Implementation plans
+│   ├── plans/                    # Active implementation plans
+│   ├── phase-2/                  # Phase 2 documentation
+│   ├── summaries/                # Implementation summaries
+│   ├── reviews/                  # Code reviews
+│   ├── tasks/                    # Task tracking
+│   ├── testing/                  # Testing documentation
+│   ├── prd/                      # Product requirements
+│   ├── archived/                 # Historical documentation
+│   └── observability-fixes-summary.md
+├── deploy/                       # Deployment configurations
+│   ├── embedding-service/        # Standalone embedding service
+│   └── vllm-llm/                 # vLLM container setup
+├── .github/                      # [PLANNED - CI/CD Not Yet Implemented]
 │   └── workflows/
 │       └── ci-cd.yml             # Test → Build → Deploy
 ├── .env.example
@@ -396,22 +427,24 @@ rag-system/
 ### **Flow 1: Document Ingestion**
 
 ```
-User → UI → NGINX → Orchestrator
-                        ↓
-                ┌───────┴────────┐
-                ↓                ↓
-    Store Raw Document      Preprocessing Pipeline
-    in GCS Bucket              ├─> Load (LangChain GCS Loader)
-                              ├─> Parse (Docling)
-                              ├─> Chunk (LangChain)
-                              └─> Embed (SentenceTransformers)
+User → Upload File → FastAPI Orchestrator
+                          ↓
+                   ┌──────┴──────┐
+                   ↓              ↓
+         Store Raw Document    Ingestion Pipeline:
+         in GCS Bucket         ├─> Load from GCS (LangChain Loaders)
+                              ├─> Parse (Docling for PDFs)
+                              ├─> Chunk (SemanticChunkerService)
+                              └─> Embed (BGE-M3 Embedding)
                                   ↓
                               Qdrant (Store Vectors + Metadata)
-                              - Vector embeddings
+                              - Vector embeddings (1024-dim)
                               - Document metadata in payload
                               - GCS path reference
+                              - Collection metadata
                                   ↓
-                              DVC (Version Dataset)
+                              Job State Management
+                              (Track progress, report status)
 ```
 
 ### **Flow 2: Query/RAG (Conditional Routing)**

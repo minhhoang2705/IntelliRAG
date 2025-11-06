@@ -198,18 +198,29 @@ Return Response to User
 
 ## MLOps & Observability
 
-### Model Management
+### Model Management [PLANNED - Not Yet Implemented]
 - **MLFlow**: Model registry, versioning, experiment tracking
 - **DVC**: Data version control, pipeline tracking
 
-### Monitoring Stack
-- **Prometheus**: Metrics collection (system + application)
-- **Grafana**: Visualization dashboards and alerting
-- **Jaeger/Tempo**: Distributed tracing
-- **Loki/ELK**: Centralized logging
-- **Evidently**: Data drift detection
+### Monitoring Stack [PARTIALLY IMPLEMENTED]
+- **Prometheus**: ✅ IMPLEMENTED
+  - 19+ custom application metrics instrumented
+  - Kubernetes deployment configuration ready
+- **Grafana**: ✅ IMPLEMENTED
+  - 5 production dashboards created (infrastructure, ingestion pipeline, overview, LLM metrics, query performance)
+  - Alerting rules configured
+  - Kubernetes deployment configuration ready
+- **Jaeger/Tempo**: ⚠️ PARTIALLY IMPLEMENTED
+  - OpenTelemetry tracing instrumented in code
+  - Kubernetes deployment configuration ready
+  - Integration testing needed
+- **Loki**: ⚠️ PARTIALLY IMPLEMENTED
+  - Structured JSON logging implemented
+  - Kubernetes deployment configuration ready
+  - Integration testing needed
+- **Evidently**: ❌ PLANNED - Not Yet Implemented
 
-### CI/CD Pipeline
+### CI/CD Pipeline [PLANNED - Not Yet Implemented]
 ```
 Git Push → GitHub Actions
     ↓
@@ -229,19 +240,27 @@ Git Push → GitHub Actions
 
 ## Infrastructure
 
-### Kubernetes (GKE Autopilot)
-- **Services**:
-  - FastAPI applications (HPA for autoscaling)
-  - Qdrant vector database
-  - KServe model serving
-  - Monitoring stack (Prometheus, Grafana, Jaeger, Loki)
-- **Deployment**: Helm charts + Helmfile
-- **IaC**: Terraform for GKE provisioning
+### Kubernetes
+**Current Status**: Configurations ready for local deployment, GKE production deployment planned
+
+- **KServe Model Serving**: ✅ CONFIGURED
+  - BGE-M3 embedding service inference configuration
+  - vLLM Qwen inference configuration
+  - Namespace configurations
+- **Observability Stack**: ✅ CONFIGURED
+  - Helmfile for Prometheus, Grafana, Jaeger, Loki
+  - Namespace configurations
+  - Values files for each component
+- **Application Deployment**: ⚠️ PARTIALLY READY
+  - FastAPI applications (HPA configuration planned)
+  - Qdrant vector database (needs configuration)
+- **IaC**: ❌ PLANNED - Terraform for GKE provisioning not yet implemented
 
 ### Local Development
 - **GPU**: RTX 4070Ti 12GB
 - **vLLM**: Docker container with GPU passthrough
 - **Model Cache**: `~/.cache/huggingface` mounted
+- **Standalone Embedding Service**: Deployed and operational
 
 ---
 
