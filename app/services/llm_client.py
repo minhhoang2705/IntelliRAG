@@ -7,6 +7,7 @@ via OpenAI-compatible API.
 from typing import Optional
 from openai import AsyncOpenAI
 import logging
+from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +51,24 @@ class LLMClientService:
         Returns:
             Generated text response
         """
-        messages = []
-        if system_message:
-            messages.append({"role": "system", "content": system_message})
-        messages.append({"role": "user", "content": prompt})
+        tracer = trace.get_tracer(__name__)
 
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+        with tracer.start_as_current_span("llm.generate") as span:
+            # Set span attributes
+            span.set_attribute("llm.model", self.model)
+            span.set_attribute("llm.temperature", temperature)
+            span.set_attribute("llm.max_tokens", max_tokens)
 
-        return response.choices[0].message.content
+            messages = []
+            if system_message:
+                messages.append({"role": "system", "content": system_message})
+            messages.append({"role": "user", "content": prompt})
+
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+
+            return response.choices[0].message.content

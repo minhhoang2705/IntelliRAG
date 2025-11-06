@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict
 from contextlib import contextmanager
+from opentelemetry import trace
 
 
 class StructuredJSONFormatter(logging.Formatter):
@@ -29,6 +30,14 @@ class StructuredJSONFormatter(logging.Formatter):
             'function': record.funcName,
             'line': record.lineno,
         }
+
+        # Add OpenTelemetry trace context for correlation
+        span = trace.get_current_span()
+        span_context = span.get_span_context()
+        if span_context.is_valid:
+            # Format trace and span IDs as 32 and 16 character hex strings
+            log_data['trace_id'] = format(span_context.trace_id, '032x')
+            log_data['span_id'] = format(span_context.span_id, '016x')
 
         # Add extra fields if present
         if hasattr(record, 'extra_data'):

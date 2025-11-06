@@ -6,6 +6,7 @@ import logging
 import time
 from enum import Enum
 from pydantic import BaseModel, Field
+from opentelemetry import trace
 from app.services.query_router.prompts import build_classification_prompt
 from app.api.middleware.metrics import (
     query_classification_total,
@@ -49,35 +50,39 @@ class QueryClassifier:
         Returns:
             QueryClassification with type, confidence, and reasoning
         """
-        # Start timing for metrics
-        start_time = time.time()
+        # Get tracer for instrumentation
+        tracer = trace.get_tracer(__name__)
 
-        # Build prompt with few-shot examples
-        prompt = build_classification_prompt(query)
+        with tracer.start_as_current_span("query.classify"):
+            # Start timing for metrics
+            start_time = time.time()
 
-        # Call LLM to classify
-        response = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.1,  # Low temperature for consistent classification
-            max_tokens=150
-        )
+            # Build prompt with few-shot examples
+            prompt = build_classification_prompt(query)
 
-        # Parse JSON response
-        data = json.loads(response)
+            # Call LLM to classify
+            response = await self.llm_client.generate(
+                prompt=prompt,
+                temperature=0.1,  # Low temperature for consistent classification
+                max_tokens=150
+            )
 
-        # Create classification object
-        classification = QueryClassification(
-            query_type=QueryType(data["query_type"]),
-            confidence=data["confidence"],
-            reasoning=data["reasoning"]
-        )
+            # Parse JSON response
+            data = json.loads(response)
 
-        # Record metrics
-        duration = time.time() - start_time
-        query_classification_duration_seconds.observe(duration)
-        query_classification_confidence.observe(classification.confidence)
-        query_classification_total.labels(
-            query_type=classification.query_type.value
-        ).inc()
+            # Create classification object
+            classification = QueryClassification(
+                query_type=QueryType(data["query_type"]),
+                confidence=data["confidence"],
+                reasoning=data["reasoning"]
+            )
 
-        return classification
+            # Record metrics
+            duration = time.time() - start_time
+            query_classification_duration_seconds.observe(duration)
+            query_classification_confidence.observe(classification.confidence)
+            query_classification_total.labels(
+                query_type=classification.query_type.value
+            ).inc()
+
+            return classification

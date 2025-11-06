@@ -55,9 +55,16 @@ Welcome to the IntelliRAG documentation! This guide helps you navigate all proje
 - 📄 [MLOps Stack](./infrastructure/mlops-stack.md) - CI/CD, MLFlow, DVC, deployment automation
 - 📄 [Observability Stack](./infrastructure/observability-stack.md) - Prometheus, Grafana, Jaeger, Loki, Evidently
 
+**Deployment Guides:**
+- 📄 [Local KServe Setup Guide](./deployment/local-kserve-setup-guide.md) - **Complete guide for Minikube + KServe**
+- 📄 [KServe Quick Reference](./deployment/kserve-quick-reference.md) - **Handy command reference**
+- 📄 [Pre-Deployment Action Plan](./deployment/pre-deployment-action-plan.md) - GKE production deployment roadmap
+- 📄 [Embedding Service Guide](./deployment/embedding-service-guide.md) - Standalone embedding service deployment
+
 **Tech Stack:**
 - **CI/CD**: GitHub Actions → Docker → GKE (Helm)
 - **Model Management**: MLFlow + DVC
+- **Model Serving**: KServe (local with Minikube or GKE)
 - **Monitoring**: Prometheus + Grafana
 - **Tracing**: Jaeger/Tempo
 - **Logging**: Loki/ELK
@@ -70,6 +77,7 @@ Welcome to the IntelliRAG documentation! This guide helps you navigate all proje
 **Developer Guides:**
 - 📄 [Integration Testing Guide](./guides/integration-testing-guide.md) - Testing best practices and setup
 - 📄 [Query Router Guide](./guides/query-router-guide.md) - LangGraph-based query routing and classification
+- 📄 [Embedding Model Switching Guide](./guides/embedding-model-switching-guide.md) - **How to switch between embedding models safely**
 
 **Best Practices:**
 - TDD methodology (>80% coverage required)
@@ -77,6 +85,7 @@ Welcome to the IntelliRAG documentation! This guide helps you navigate all proje
 - vLLM for high-throughput inference
 - GCS for cloud storage
 - Qdrant payloads for metadata
+- Automatic dimension migration for embedding models
 
 ---
 
@@ -137,6 +146,7 @@ tests/unit/
 - 📁 [Completed Tasks](./tasks/completed/) - Finished task summaries
   - Task 8: Structured Logging
   - Task 9: Remove Duplicate Chunking
+  - **Task 10: Auto-Dimension Migration** (2025-11-05) - Automatic embedding model switching
   - Remaining Tasks (2025-10-09)
 - 📁 [Security Fixes](./tasks/security-fixes/) - Security-related task logs
   - CSV Bomb Fix

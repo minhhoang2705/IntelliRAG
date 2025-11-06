@@ -18,6 +18,7 @@ from typing import Optional, List, Dict, Any
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 import logging
+from opentelemetry import trace
 import uuid
 import re
 
@@ -405,12 +406,25 @@ class VectorDBService:
         limit: int = 10
     ):
         """Search for similar vectors."""
-        response = await self.client.query_points(
-            collection_name=collection_name,
-            query=query_vector,
-            limit=limit
-        )
-        return response.points
+        # Get tracer for instrumentation
+        tracer = trace.get_tracer(__name__)
+
+        with tracer.start_as_current_span("vectordb.search") as span:
+            # Set span attributes
+            span.set_attribute("db.collection", collection_name)
+            span.set_attribute("db.limit", limit)
+
+            # Perform vector search
+            response = await self.client.query_points(
+                collection_name=collection_name,
+                query=query_vector,
+                limit=limit
+            )
+
+            # Record results count in span
+            span.set_attribute("db.results_count", len(response.points))
+
+            return response.points
 
     async def upsert_vectors_hybrid(
         self,

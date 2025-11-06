@@ -18,6 +18,7 @@ from app.services.semantic_chunker import SemanticChunkerService
 from app.utils import extract_file_extension
 import logging
 import time
+from opentelemetry import trace
 from app.api.middleware.metrics import (
     document_processing_stage_duration_seconds,
     ingestion_chunks_created,
@@ -114,29 +115,36 @@ class OrchestratorService:
         Returns:
             Dictionary with 'answer', 'sources', and 'classification' keys
         """
-        # Use QueryRouterService for intelligent routing
-        result = await self.query_router_service.route_query(
-            query=query,
-            collection_name=collection_name
-        )
+        tracer = trace.get_tracer(__name__)
 
-        # Extract sources from context if available
-        sources = []
-        if result.get("context"):
-            # Context is a list of retrieved documents with scores
-            for doc in result["context"]:
-                sources.append({
-                    "text": doc.get("text", ""),
-                    "score": doc.get("score", 0.0),
-                    "id": str(doc.get("id", ""))
-                })
+        with tracer.start_as_current_span("orchestrator.query") as span:
+            # Set span attributes
+            span.set_attribute("query.collection", collection_name)
+            span.set_attribute("query.top_k", top_k)
 
-        # Transform result to maintain backward compatibility
-        return {
-            "answer": result.get("response", ""),
-            "sources": sources,
-            "classification": result.get("classification")
-        }
+            # Use QueryRouterService for intelligent routing
+            result = await self.query_router_service.route_query(
+                query=query,
+                collection_name=collection_name
+            )
+
+            # Extract sources from context if available
+            sources = []
+            if result.get("context"):
+                # Context is a list of retrieved documents with scores
+                for doc in result["context"]:
+                    sources.append({
+                        "text": doc.get("text", ""),
+                        "score": doc.get("score", 0.0),
+                        "id": str(doc.get("id", ""))
+                    })
+
+            # Transform result to maintain backward compatibility
+            return {
+                "answer": result.get("response", ""),
+                "sources": sources,
+                "classification": result.get("classification")
+            }
 
     async def ingest(self, file_path: str, collection_name: str, job_id: str = None):
         """Ingest document into vector database.

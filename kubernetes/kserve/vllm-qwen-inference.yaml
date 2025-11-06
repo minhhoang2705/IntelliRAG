@@ -1,0 +1,70 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: vllm-qwen
+  namespace: intellirag
+  labels:
+    app: intellirag
+    component: llm
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 1
+    containers:
+    - name: kserve-container
+      image: vllm/vllm-openai:latest
+      command:
+        - python3
+        - -m
+        - vllm.entrypoints.openai.api_server
+        - --model
+        - Qwen/Qwen3-0.6B
+        - --gpu-memory-utilization
+        - "0.5"
+        - --max-model-len
+        - "2048"
+        - --dtype
+        - bfloat16
+        - --enable-prefix-caching
+        - --port
+        - "8080"
+      env:
+        - name: HF_HOME
+          value: /root/.cache/huggingface
+        - name: VLLM_LOGGING_LEVEL
+          value: INFO
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        limits:
+          cpu: "4"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 4Gi
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: huggingface-cache
+          mountPath: /root/.cache/huggingface
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        timeoutSeconds: 5
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 5
+    volumes:
+      - name: huggingface-cache
+        hostPath:
+          path: /home/minh-ubs-k8s/.cache/huggingface
+          type: DirectoryOrCreate
+

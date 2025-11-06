@@ -18,6 +18,7 @@ from typing import Optional, List
 from app.services.base_embedding import BaseEmbeddingService
 from sentence_transformers import SentenceTransformer
 import logging
+from opentelemetry import trace
 import torch
 import threading
 import httpx
@@ -379,13 +380,23 @@ class EmbeddingService(BaseEmbeddingService):
             This method runs the synchronous batch embedding in a thread pool executor
             to avoid blocking the event loop.
         """
-        import asyncio
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None,
-            lambda: self.embed_batch(
-                texts, batch_size, normalize, False, use_gpu)
-        )
+        # Get tracer for instrumentation
+        tracer = trace.get_tracer(__name__)
+
+        with tracer.start_as_current_span("embedding.batch") as span:
+            # Set span attributes
+            span.set_attribute("embedding.batch_size", len(texts))
+            span.set_attribute("embedding.mode", "remote" if self.use_remote else "local")
+
+            import asyncio
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: self.embed_batch(
+                    texts, batch_size, normalize, False, use_gpu)
+            )
+
+            return result
 
     def _embed_remote(self, texts: List[str], normalize: bool = False) -> List[List[float]]:
         """Call remote embedding service via HTTP.
