@@ -1,0 +1,15 @@
+repositories:
+  - name: jaegertracing
+    url: https://jaegertracing.github.io/helm-charts
+
+releases:
+  - name: jaeger
+    namespace: observability
+    chart: jaegertracing/jaeger
+    version: 3.3.1
+    values:
+      - values.yaml
+    wait: true
+    timeout: 600
+    atomic: true
+    cleanupOnFail: true
