@@ -1,0 +1,138 @@
+groups:
+  - name: intellirag_critical
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job="intellirag"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "IntelliRAG service is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="intellirag",status_code=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for endpoint {{ $labels.endpoint }}"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="intellirag"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High API latency detected"
+          description: "P99 latency is {{ $value | humanizeDuration }} for endpoint {{ $labels.endpoint }}"
+
+      - alert: GPUOverload
+        expr: gpu_utilization_percent{job="intellirag"} > 95
+        for: 10m
+        labels:
+          severity: critical
+          component: gpu
+        annotations:
+          summary: "GPU overloaded"
+          description: "GPU utilization has been above 95% for 10 minutes: {{ $value }}%"
+
+  - name: intellirag_warning
+    interval: 1m
+    rules:
+      - alert: QueueBacklog
+        expr: ingestion_jobs_active{job="intellirag"} > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: ingestion
+        annotations:
+          summary: "Ingestion queue backlog detected"
+          description: "{{ $value }} active ingestion jobs in queue"
+
+      - alert: LowCacheHitRate
+        expr: rate(embedding_cache_hits_total{job="intellirag",hit="false"}[5m]) / rate(embedding_cache_hits_total{job="intellirag"}[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Low embedding cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}"
+
+      - alert: SlowVectorSearch
+        expr: histogram_quantile(0.95, rate(vector_db_operations_total{job="intellirag",operation="search"}[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: vectordb
+        annotations:
+          summary: "Slow vector search operations"
+          description: "P95 vector search latency is {{ $value | humanizeDuration }}"
+
+      - alert: IngestionErrors
+        expr: rate(ingestion_errors_total{job="intellirag"}[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          component: ingestion
+        annotations:
+          summary: "Ingestion errors detected"
+          description: "Ingestion error rate: {{ $value | humanize }}/s for type {{ $labels.error_type }}"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_working_set_bytes{namespace="default",pod=~"intellirag.*"} / container_spec_memory_limit_bytes{namespace="default",pod=~"intellirag.*"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Pod {{ $labels.pod }} memory usage at {{ $value | humanizePercentage }}"
+
+      - alert: PodRestarting
+        expr: increase(kube_pod_container_status_restarts_total{namespace="default",pod=~"intellirag.*"}[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Pod restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
+
+      - alert: HighCost
+        expr: (rate(llm_token_count{job="intellirag",type="input"}[5m]) * 0.00015 / 1000) + (rate(llm_token_count{job="intellirag",type="output"}[5m]) * 0.0006 / 1000) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          component: llm
+        annotations:
+          summary: "High LLM cost detected"
+          description: "LLM cost is {{ $value | humanize }}/5min, exceeding budget threshold"
+
+  - name: intellirag_info
+    interval: 5m
+    rules:
+      - alert: NewDeployment
+        expr: changes(kube_deployment_status_observed_generation{namespace="default",deployment=~"intellirag.*"}[5m]) > 0
+        labels:
+          severity: info
+          component: deployment
+        annotations:
+          summary: "New deployment detected"
+          description: "Deployment {{ $labels.deployment }} has been updated"
+
+      - alert: QueryTypeDistributionShift
+        expr: abs(rate(query_classification_total{job="intellirag"}[1h]) - rate(query_classification_total{job="intellirag"}[1h] offset 24h)) / rate(query_classification_total{job="intellirag"}[1h] offset 24h) > 0.3
+        for: 30m
+        labels:
+          severity: info
+          component: rag
+        annotations:
+          summary: "Query type distribution shift"
+          description: "Query type {{ $labels.query_type }} distribution has changed by {{ $value | humanizePercentage }} compared to 24h ago"

@@ -1,0 +1,15 @@
+repositories:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+releases:
+  - name: loki
+    namespace: observability
+    chart: grafana/loki
+    version: 6.21.0
+    values:
+      - values.yaml
+    wait: true
+    timeout: 600
+    atomic: true
+    cleanupOnFail: true
