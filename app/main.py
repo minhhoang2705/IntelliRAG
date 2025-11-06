@@ -9,11 +9,13 @@ from contextlib import asynccontextmanager
 import os
 from fastapi import FastAPI, Response
 from app.services.orchestrator import OrchestratorService
-from app.models.schemas import QueryRequest, QueryResponse, QueryClassificationSchema
 from prometheus_client import generate_latest
 from app.core.logging import setup_logging, get_logger
+from app.core.tracing import setup_tracing
 from app.api.v1.upload import router as upload_router
 from app.api.v1.ingest import router as ingest_router
+from app.api.v1.query import router as query_router
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 # Configure structured logging
 setup_logging(level="INFO")
@@ -28,6 +30,15 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown."""
     global orchestrator
     # Startup
+
+    # Initialize OpenTelemetry tracing
+    setup_tracing(
+        service_name="IntelliRAG",
+        jaeger_host=os.getenv("JAEGER_HOST", "localhost"),
+        jaeger_port=int(os.getenv("JAEGER_PORT", "6831"))
+    )
+    logger.info("OpenTelemetry tracing initialized")
+
     if orchestrator is None:
         logger.info("Initializing IntelliRAG services...")
         orchestrator = OrchestratorService(
@@ -60,8 +71,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Instrument FastAPI app for automatic tracing
+FastAPIInstrumentor.instrument_app(app)
+
 # Include routers
 app.include_router(upload_router)
+app.include_router(query_router)
 app.include_router(ingest_router)
 
 
@@ -78,51 +93,3 @@ async def metrics_endpoint():
         content=generate_latest(),
         media_type='text/plain; version=0.0.4; charset=utf-8'
     )
-
-
-@app.post("/api/v1/query", response_model=QueryResponse)
-async def query_endpoint(request: QueryRequest) -> QueryResponse:
-    """Query endpoint for RAG system.
-
-    Args:
-        request: Query request with user query and parameters
-
-    Returns:
-        QueryResponse with answer and sources
-    """
-    logger.info(f"Received query: {request.query[:50]}...")
-
-    # Execute query via orchestrator (query router handles routing automatically)
-    result = await orchestrator.query(
-        query=request.query,
-        collection_name="default",  # TODO: Make configurable
-        top_k=request.top_k,
-        temperature=request.temperature,
-        max_tokens=request.max_tokens
-    )
-
-    # Convert classification to schema if present
-    classification_schema = None
-    if result.get("classification"):
-        classification_schema = QueryClassificationSchema(
-            query_type=result["classification"].query_type,
-            confidence=result["classification"].confidence,
-            reasoning=result["classification"].reasoning
-        )
-
-    # Format response - handle None answer gracefully
-    answer = result.get("answer") or result.get(
-        "response") or "Unable to generate response"
-    sources = result.get("sources", [])
-
-    response = QueryResponse(
-        answer=answer,
-        sources=sources,
-        used_rag=request.use_rag,
-        query=request.query,
-        classification=classification_schema
-    )
-
-    logger.info(f"Query completed with {len(sources)} sources")
-
-    return response

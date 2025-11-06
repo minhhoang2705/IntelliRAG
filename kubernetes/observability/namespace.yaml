@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    name: observability
+    monitoring: "true"
+    toolkit.fluxcd.io/tenant: observability
+  annotations:
+    description: "Observability stack for IntelliRAG - Prometheus, Grafana, Jaeger, Loki"
