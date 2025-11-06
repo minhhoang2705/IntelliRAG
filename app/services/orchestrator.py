@@ -7,7 +7,7 @@ Date: 2025-10-17
 """
 
 from app.services.embedding import EmbeddingService
-from app.services.vectordb import VectorDBService, parse_collection_dimension
+from app.services.vectordb import VectorDBService
 from app.services.llm_client import LLMClientService
 from app.services.rag_pipeline import RAGPipelineService
 from app.services.query_router.classifier import QueryClassifier
@@ -214,36 +214,15 @@ class OrchestratorService:
                 ).inc()
                 raise
 
-            # Ensure collection exists with correct dimension (auto-migrate if needed)
-            try:
-                result = await self.vectordb_service.ensure_collection_with_dimension(
+            # Ensure collection exists before upserting
+            collection_exists = await self.vectordb_service.collection_exists(collection_name)
+            if not collection_exists:
+                logger.info(f"Creating collection: {collection_name}")
+                await self.vectordb_service.create_collection(
                     collection_name=collection_name,
                     vector_size=self.embedding_service.get_embedding_dimension(),
-                    distance="cosine",
-                    auto_migrate=True  # Create new collection with dimension suffix if mismatch
+                    distance="cosine"
                 )
-
-                if result["action"] == "created":
-                    logger.info(
-                        f"Created new collection '{collection_name}' with dimension {result['dimension']}")
-                elif result["action"] == "exists":
-                    logger.info(
-                        f"Using existing collection '{collection_name}' with dimension {result['dimension']}")
-                elif result["action"] == "created_new":
-                    # Dimension mismatch - new collection created with suffix
-                    new_collection_name = result["new_collection_name"]
-                    logger.warning(
-                        f"Dimension mismatch detected! "
-                        f"Old collection '{result['old_collection_name']}' has dimension {parse_collection_dimension(result['old_collection_name'])}. "
-                        f"Created new collection '{new_collection_name}' with dimension {result['dimension']}"
-                    )
-                    # Update collection_name to use the new one
-                    collection_name = new_collection_name
-
-            except ValueError as e:
-                # Dimension mismatch - provide helpful error
-                self.job_state_manager.mark_job_failed(job_id, str(e))
-                raise
 
             # Store vectors in database
             try:
