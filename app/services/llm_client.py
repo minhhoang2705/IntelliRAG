@@ -8,6 +8,7 @@ from typing import Optional
 from openai import AsyncOpenAI
 import logging
 from opentelemetry import trace
+from app.api.middleware.metrics import llm_token_count
 
 logger = logging.getLogger(__name__)
 
@@ -70,5 +71,18 @@ class LLMClientService:
                 temperature=temperature,
                 max_tokens=max_tokens
             )
+
+            # Track input token usage
+            if hasattr(response, 'usage') and response.usage:
+                llm_token_count.labels(
+                    model=self.model,
+                    type='input'
+                ).inc(response.usage.prompt_tokens)
+
+                # Track output token usage
+                llm_token_count.labels(
+                    model=self.model,
+                    type='output'
+                ).inc(response.usage.completion_tokens)
 
             return response.choices[0].message.content

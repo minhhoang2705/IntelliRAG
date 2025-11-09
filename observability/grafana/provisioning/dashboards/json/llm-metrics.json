@@ -19,13 +19,13 @@
         "title": "Token Usage (Input vs Output)",
         "targets": [
           {
-            "expr": "rate(llm_token_count{job=\"intellirag\",type=\"input\"}[5m])",
-            "legendFormat": "Input Tokens",
+            "expr": "rate(llm_token_count_total{job=\"intellirag\",type=\"input\"}[5m])",
+            "legendFormat": "Input Tokens/s",
             "refId": "A"
           },
           {
-            "expr": "rate(llm_token_count{job=\"intellirag\",type=\"output\"}[5m])",
-            "legendFormat": "Output Tokens",
+            "expr": "rate(llm_token_count_total{job=\"intellirag\",type=\"output\"}[5m])",
+            "legendFormat": "Output Tokens/s",
             "refId": "B"
           }
         ],
@@ -82,7 +82,8 @@
         "title": "Total Tokens (24h)",
         "targets": [
           {
-            "expr": "increase(llm_token_count{job=\"intellirag\"}[24h])",
+            "expr": "sum(increase(llm_token_count_total{job=\"intellirag\"}[24h]))",
+            "legendFormat": "Total Tokens",
             "refId": "A"
           }
         ],

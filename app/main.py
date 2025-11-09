@@ -74,6 +74,10 @@ app = FastAPI(
 # Instrument FastAPI app for automatic tracing
 FastAPIInstrumentor.instrument_app(app)
 
+# Add HTTP metrics middleware
+from app.api.middleware.metrics_middleware import MetricsMiddleware
+app.add_middleware(MetricsMiddleware)
+
 # Include routers
 app.include_router(upload_router)
 app.include_router(query_router)

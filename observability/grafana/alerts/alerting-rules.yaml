@@ -106,7 +106,7 @@ groups:
           description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
 
       - alert: HighCost
-        expr: (rate(llm_token_count{job="intellirag",type="input"}[5m]) * 0.00015 / 1000) + (rate(llm_token_count{job="intellirag",type="output"}[5m]) * 0.0006 / 1000) > 0.01
+        expr: (rate(llm_token_count_total{job="intellirag",type="input"}[5m]) * 0.00015 / 1000) + (rate(llm_token_count_total{job="intellirag",type="output"}[5m]) * 0.0006 / 1000) > 0.01
         for: 10m
         labels:
           severity: warning
@@ -114,6 +114,46 @@ groups:
         annotations:
           summary: "High LLM cost detected"
           description: "LLM cost is {{ $value | humanize }}/5min, exceeding budget threshold"
+
+      - alert: LowSuccessRate
+        expr: sum(rate(http_requests_total{job="intellirag",status_code=~"2.."}[5m])) / sum(rate(http_requests_total{job="intellirag"}[5m])) < 0.95
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Low success rate detected"
+          description: "Success rate is {{ $value | humanizePercentage }}, below 95% threshold"
+
+      - alert: HighClientErrorRate
+        expr: sum(rate(http_requests_total{job="intellirag",status_code=~"4.."}[5m])) / sum(rate(http_requests_total{job="intellirag"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High client error rate (4xx)"
+          description: "Client error rate is {{ $value | humanizePercentage }}, endpoint: {{ $labels.endpoint }}"
+
+      - alert: HighTokenUsageRate
+        expr: sum(rate(llm_token_count_total{job="intellirag"}[5m])) > 10000
+        for: 10m
+        labels:
+          severity: warning
+          component: llm
+        annotations:
+          summary: "High token usage rate"
+          description: "Token usage rate is {{ $value | humanize }} tokens/sec, exceeding normal levels"
+
+      - alert: SlowP95ResponseTime
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="intellirag"}[5m])) by (endpoint, le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Slow P95 response time"
+          description: "P95 latency is {{ $value | humanizeDuration }} for endpoint {{ $labels.endpoint }}"
 
   - name: intellirag_info
     interval: 5m
