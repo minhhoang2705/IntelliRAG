@@ -1,0 +1,38 @@
+apiVersion: v2
+name: intellirag-observability
+description: Complete observability stack for IntelliRAG (Prometheus, Grafana, Loki, Jaeger)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - observability
+  - monitoring
+  - logging
+  - tracing
+  - prometheus
+  - grafana
+  - loki
+  - jaeger
+maintainers:
+  - name: IntelliRAG Team
+
+dependencies:
+  # Prometheus Stack (includes Grafana)
+  - name: kube-prometheus-stack
+    version: "78.3.2"
+    repository: https://prometheus-community.github.io/helm-charts
+    alias: prometheus
+    condition: prometheus.enabled
+
+  # Loki Stack (logging)
+  - name: loki
+    version: "6.21.0"
+    repository: https://grafana.github.io/helm-charts
+    condition: loki.enabled
+
+  # Jaeger Stack (tracing)
+  - name: jaeger
+    version: "3.3.1"
+    repository: https://jaegertracing.github.io/helm-charts
+    condition: jaeger.enabled
+

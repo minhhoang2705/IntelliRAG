@@ -1,0 +1,169 @@
+# IntelliRAG Prometheus Stack
+# Minimal but production-ready configuration
+
+kube-prometheus-stack:
+  # Prometheus Operator
+  prometheusOperator:
+    enabled: true
+    resources:
+      limits:
+        cpu: 300m
+        memory: 384Mi
+      requests:
+        cpu: 50m
+        memory: 192Mi
+
+  # Prometheus Server
+  prometheus:
+    enabled: true
+    prometheusSpec:
+      # Storage and retention
+      retention: 15d
+      retentionSize: 18GB
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 20Gi
+            storageClassName: standard
+
+      # Resources
+      resources:
+        limits:
+          cpu: 1500m
+          memory: 3Gi
+        requests:
+          cpu: 500m
+          memory: 1536Mi
+
+      # Service discovery
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+
+      # Scrape configs for IntelliRAG services
+      additionalScrapeConfigs:
+        - job_name: 'intellirag-api'
+          scrape_interval: 30s
+          scrape_timeout: 10s
+          static_configs:
+            - targets:
+                - 'intellirag-service.default.svc.cluster.local:8000'
+          metrics_path: '/metrics'
+
+        - job_name: 'qdrant'
+          scrape_interval: 30s
+          static_configs:
+            - targets:
+                - 'qdrant.default.svc.cluster.local:6333'
+          metrics_path: '/metrics'
+
+      # Labels
+      externalLabels:
+        cluster: intellirag
+        environment: production
+
+  # Alertmanager
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      replicas: 1
+      retention: 120h
+      storage:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 5Gi
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+
+    config:
+      global:
+        resolve_timeout: 5m
+      route:
+        group_by: ['alertname', 'cluster', 'service']
+        group_wait: 10s
+        group_interval: 10s
+        repeat_interval: 12h
+        receiver: 'default'
+      receivers:
+        - name: 'default'
+          # Add your notification channels here
+          # webhook_configs:
+          # - url: 'http://alertmanager-webhook:5000/alerts'
+
+  # Grafana (disabled - deploy separately)
+  grafana:
+    enabled: false
+
+  # Node metrics
+  nodeExporter:
+    enabled: true
+
+  # Kubernetes state metrics
+  kubeStateMetrics:
+    enabled: true
+
+  # Alert rules
+  defaultRules:
+    create: true
+    rules:
+      alertmanager: true
+      etcd: false
+      general: true
+      k8s: true
+      kubeApiserver: false
+      kubelet: true
+      kubernetesApps: true
+      kubernetesResources: true
+      kubernetesStorage: true
+      kubernetesSystem: true
+      network: true
+      node: true
+      prometheus: true
+      prometheusOperator: true
+
+  # Custom IntelliRAG alerts
+  additionalPrometheusRulesMap:
+    intellirag-alerts:
+      groups:
+        - name: intellirag
+          interval: 30s
+          rules:
+            - alert: IntelliRAGServiceDown
+              expr: up{job="intellirag-api"} == 0
+              for: 2m
+              labels:
+                severity: critical
+              annotations:
+                summary: "IntelliRAG API is down"
+                description: "IntelliRAG API has been down for more than 2 minutes"
+
+            - alert: HighErrorRate
+              expr: rate(http_requests_total{job="intellirag-api",status=~"5.."}[5m]) > 0.05
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "High error rate"
+                description: "Error rate is {{ $value | humanizePercentage }}"
+
+            - alert: HighLatency
+              expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="intellirag-api"}[5m])) > 2
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: "High latency detected"
+                description: "95th percentile latency is {{ $value }}s"
+
+

@@ -18,7 +18,7 @@ services:
     networks:
       - intellirag-network
   
-  # Embedding Service (NEW)
+  # Embedding Service
   embedding-service:
     build: ./deploy/embedding-service
     container_name: intellirag-embedding
@@ -58,31 +58,56 @@ services:
         max-size: "10m"
         max-file: "3"
   
-  qwen3-llm:
+  qwen3-vllm:
     image: vllm/vllm-openai:latest
-    container_name: qwen3-llm
-    ports:
-      - "8000:8000"
+    container_name: qwen3-inference
+    runtime: nvidia
+    
+    environment:
+      # Authentication
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN}
+      
+      # GPU Configuration
+      CUDA_VISIBLE_DEVICES: "0"
+      
+      # Logging & Monitoring
+      VLLM_LOGGING_LEVEL: INFO
+      VLLM_NO_USAGE_STATS: "1"
+      
+      # Performance Optimization
+      VLLM_USE_TRITON_FLASH_ATTN: "True"
+      VLLM_ATTENTION_BACKEND: FLASH_ATTN
+    
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - ./models:/models  # Optional: for locally stored models
+    
+    ports:
+      - "8000:8000"
+    
     command: >
       --model Qwen/Qwen3-0.6B
-      --gpu-memory-utilization 0.5
-      --enable-lora
-      --dtype bfloat16
-      --use-tqdm-on-load
-      --max-model-len 2048
-      --block-size 32
-      --cpu-offload-gb 2
-      --swap-space 8
+      --gpu-memory-utilization 0.6
+      --max-model-len 8192
+      --dtype auto
+      --trust-remote-code
+      --max-num-seqs 64
       --enable-prefix-caching
+    
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              device_ids: ['0']
               capabilities: [gpu]
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
     restart: unless-stopped
 
 

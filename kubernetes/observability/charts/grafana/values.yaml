@@ -1,0 +1,178 @@
+# IntelliRAG Grafana
+# Pre-configured with Prometheus, Loki, and Jaeger datasources
+
+grafana:
+  # Disable automatic service discovery to prevent Jaeger auto-detection
+  enableServiceLinks: false
+  
+  # Admin credentials
+  adminUser: admin
+  # adminPassword: admin  # Removed - using secret instead
+  admin:
+    existingSecret: "grafana-admin-secret"
+    userKey: admin-user
+    passwordKey: admin-password
+  
+  # Resources
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Persistence
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: standard
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+
+  # Ingress (disabled by default)
+  ingress:
+    enabled: false
+    # ingressClassName: nginx
+    # hosts:
+    #   - grafana.yourdomain.com
+
+  # Datasources (auto-configured)
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        # Prometheus (Metrics)
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus-kube-prometheus-prometheus.observability.svc.cluster.local:9090
+          isDefault: true
+          editable: true
+          jsonData:
+            timeInterval: 30s
+            
+        # Loki (Logs)
+        - name: Loki
+          type: loki
+          access: proxy
+          url: http://loki-gateway.observability.svc.cluster.local
+          editable: true
+          jsonData:
+            maxLines: 1000
+            
+        # Jaeger (Traces)
+        - name: Jaeger
+          type: jaeger
+          access: proxy
+          url: http://jaeger-query.observability.svc.cluster.local:16686
+          editable: true
+
+  # Dashboard providers
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+
+  # Pre-installed dashboards
+  dashboards:
+    default:
+      # Kubernetes cluster monitoring
+      kubernetes-cluster:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+        
+      # Node exporter
+      node-exporter:
+        gnetId: 1860
+        revision: 37
+        datasource: Prometheus
+        
+      # Loki logs
+      loki-logs:
+        gnetId: 13639
+        revision: 2
+        datasource: Loki
+
+  # Grafana configuration
+  grafana.ini:
+    server:
+      root_url: http://localhost:3000
+      
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+      
+    security:
+      admin_user: $__env{GF_SECURITY_ADMIN_USER}
+      admin_password: $__env{GF_SECURITY_ADMIN_PASSWORD}
+      
+    auth:
+      disable_login_form: false
+      
+    auth.anonymous:
+      enabled: false
+      
+    users:
+      allow_sign_up: false
+      auto_assign_org: true
+      auto_assign_org_role: Viewer
+      
+    log:
+      mode: console
+      level: info
+    
+    # Disable built-in tracing (we use Jaeger as datasource instead)
+    tracing.jaeger:
+      enabled: false
+
+  # Plugins to install
+  plugins:
+    - grafana-piechart-panel
+    - grafana-clock-panel
+
+  # Environment variables
+  env:
+    GF_EXPLORE_ENABLED: "true"
+    GF_ALERTING_ENABLED: "true"
+    GF_UNIFIED_ALERTING_ENABLED: "true"
+    # Explicitly disable tracing
+    GF_TRACING_ENABLED: "false"
+    GF_TRACING_OPENTELEMETRY_OTLP_ADDRESS: ""
+    JAEGER_DISABLED: "true"
+  
+  # Environment variables from secrets
+  envFromSecret: grafana-admin-secret
+
+  # Disable test framework
+  testFramework:
+    enabled: false
+  
+  # Disable image renderer
+  imageRenderer:
+    enabled: false
+
+  # Service account
+  serviceAccount:
+    create: true
+    name: grafana
+
+  # RBAC
+  rbac:
+    create: true
+    pspEnabled: false
+
+

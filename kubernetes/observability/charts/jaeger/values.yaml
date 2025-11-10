@@ -1,0 +1,117 @@
+# IntelliRAG Jaeger Stack
+# Minimal but production-ready configuration
+
+jaeger:
+  # Storage backend - Using in-memory for development (fast, no dependencies)
+  # WARNING: Data is lost on pod restart - suitable for development/testing only
+  provisionDataStore:
+    cassandra: false
+    elasticsearch: false  # Disabled to avoid heavy resource usage
+    kafka: false
+
+  storage:
+    type: memory  # Changed from elasticsearch to memory
+    # For production, consider: badger, cassandra, or elasticsearch
+    memory:
+      maxTraces: 10000  # Keep last 10k traces in memory
+
+  # Jaeger Agent (collects traces from applications)
+  agent:
+    enabled: true
+    daemonset:
+      enabled: true
+      hostPort: 6831
+      useHostNetwork: false
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+  # Jaeger Collector (receives traces, writes to storage)
+  collector:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      zipkin:
+        port: 9411
+      grpc:
+        port: 14250
+      http:
+        port: 14268
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    autoscaling:
+      enabled: false
+      # For production scale-out:
+      # enabled: true
+      # minReplicas: 2
+      # maxReplicas: 5
+      # targetCPUUtilizationPercentage: 80
+
+  # Jaeger Query (UI and API)
+  query:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 16686
+    resources:
+      limits:
+        cpu: 300m
+        memory: 384Mi
+      requests:
+        cpu: 100m
+        memory: 192Mi
+    ingress:
+      enabled: false  # Enable if using ingress controller
+      # ingressClassName: nginx
+      # hosts:
+      #   - jaeger.yourdomain.com
+
+  # Elasticsearch for trace storage - DISABLED for development
+  elasticsearch:
+    enabled: false  # Disabled to save resources and avoid image pull issues
+    # Uncomment below for production with persistent storage:
+    # replicas: 1
+    # minimumMasterNodes: 1
+    # resources:
+    #   requests:
+    #     cpu: 500m
+    #     memory: 1Gi
+    #   limits:
+    #     cpu: 1000m
+    #     memory: 2Gi
+
+  # Trace retention
+  schema:
+    create: true
+    ttl:
+      enabled: true
+      days: 7  # Adjust as needed
+
+  # Sampling configuration
+  sampling:
+    strategies: |
+      {
+        "default_strategy": {
+          "type": "probabilistic",
+          "param": 0.1
+        },
+        "service_strategies": [
+          {
+            "service": "intellirag-api",
+            "type": "probabilistic",
+            "param": 0.5
+          }
+        ]
+      }
+
