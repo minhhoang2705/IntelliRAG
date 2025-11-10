@@ -10,7 +10,7 @@ from app.services.embedding import EmbeddingService
 from app.services.vectordb import VectorDBService, parse_collection_dimension
 from app.services.llm_client import LLMClientService
 from app.services.rag_pipeline import RAGPipelineService
-from app.services.query_router.classifier import QueryClassifier
+from app.services.query_router.classifier import QueryClassifier, QueryType
 from app.services.query_router_service import QueryRouterService
 from app.services.job_state import JobStateManager
 from app.services.gcs_loader import GCSLoaderService
@@ -81,7 +81,8 @@ class OrchestratorService:
         self.query_router_service = QueryRouterService(
             classifier=classifier,
             vectordb=self.vectordb_service,
-            llm=self.llm_client
+            llm=self.llm_client,
+            embedding=self.embedding_service
         )
 
         # Initialize ingestion services
@@ -101,7 +102,8 @@ class OrchestratorService:
         collection_name: str,
         top_k: int = 5,
         temperature: float = 0.7,
-        max_tokens: int = 512
+        max_tokens: int = 512,
+        use_rag: bool = None
     ) -> dict:
         """Execute query using QueryRouterService for intelligent routing.
 
@@ -111,9 +113,14 @@ class OrchestratorService:
             top_k: Number of documents to retrieve
             temperature: LLM sampling temperature
             max_tokens: Maximum tokens to generate
+            use_rag: If True, force RAG retrieval; if False, force direct; if None, use classification
 
         Returns:
-            Dictionary with 'answer', 'sources', and 'classification' keys
+            dict with keys:
+            - answer: Generated answer
+            - sources: List of source documents
+            - classification: Query classification result
+            - used_rag: Boolean indicating whether RAG retrieval was used
         """
         tracer = trace.get_tracer(__name__)
 
@@ -123,10 +130,24 @@ class OrchestratorService:
             span.set_attribute("query.top_k", top_k)
 
             # Use QueryRouterService for intelligent routing
+            # If use_rag is explicitly set, honor it
+            force_rag = use_rag if use_rag is True else False
             result = await self.query_router_service.route_query(
                 query=query,
-                collection_name=collection_name
+                collection_name=collection_name,
+                force_rag=force_rag
             )
+
+            # Check for errors from graph execution
+            if result.get("error"):
+                logger.error(f"Query routing failed: {result['error']}")
+                # Return error response with proper defaults
+                return {
+                    "answer": f"I apologize, but I encountered an error processing your query: {result['error']}",
+                    "sources": [],
+                    "classification": None,
+                    "used_rag": False
+                }
 
             # Extract sources from context if available
             sources = []
@@ -139,11 +160,24 @@ class OrchestratorService:
                         "id": str(doc.get("id", ""))
                     })
 
+            # Determine if RAG was actually used
+            classification = result.get("classification")
+            used_rag = len(sources) > 0 or (
+                classification and classification.query_type in [
+                    QueryType.RAG, QueryType.MULTI_HOP]
+            )
+
+            # Get response, ensuring it's never None or empty
+            answer = result.get("response", "")
+            if not answer:
+                answer = "I apologize, but I was unable to generate a response to your query."
+
             # Transform result to maintain backward compatibility
             return {
-                "answer": result.get("response", ""),
+                "answer": answer,
                 "sources": sources,
-                "classification": result.get("classification")
+                "classification": classification,
+                "used_rag": used_rag
             }
 
     async def ingest(self, file_path: str, collection_name: str, job_id: str = None):

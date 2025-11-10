@@ -21,7 +21,8 @@ async def query_endpoint(
         collection_name="default",
         top_k=request.top_k,
         temperature=request.temperature,
-        max_tokens=request.max_tokens
+        max_tokens=request.max_tokens,
+        use_rag=request.use_rag
     )
 
     # Convert classification to schema if present
@@ -37,6 +38,7 @@ async def query_endpoint(
         "answer": result["answer"],
         "sources": result["sources"],
         "query": request.query,
-        "used_rag": request.use_rag,
+        # CHANGE: Use actual value from orchestrator
+        "used_rag": result["used_rag"],
         "classification": classification_schema
     }

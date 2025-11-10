@@ -104,7 +104,11 @@ async def test_query_endpoint_with_rag(check_vllm, initialized_app):
     # Setup: Populate collection with test data
     collection_name = "default"  # FastAPI uses "default" collection
     vectordb_svc = VectorDBService(url="http://localhost:6333")
-    embedding_svc = EmbeddingService(device="cpu")
+    # Use remote embedding service to match orchestrator (embeddinggemma-300m = 768 dims)
+    embedding_svc = EmbeddingService(
+        use_remote=True,
+        remote_url="http://localhost:8001"
+    )
 
     try:
         # Create and populate collection
@@ -113,7 +117,9 @@ async def test_query_endpoint_with_rag(check_vllm, initialized_app):
         except:
             pass
 
-        await vectordb_svc.create_collection(collection_name, 1024, "cosine")
+        # Create collection with 768 dimensions to match remote embeddinggemma-300m service
+        await vectordb_svc.create_collection(collection_name, 768, "cosine")
+        
         texts = [doc['text'] for doc in SAMPLE_DOCUMENTS]
         embeddings = await embedding_svc.embed_batch_async(texts)
         ids = list(range(len(SAMPLE_DOCUMENTS)))
@@ -127,7 +133,7 @@ async def test_query_endpoint_with_rag(check_vllm, initialized_app):
         # Execute RAG query via API
         async with AsyncClient(transport=ASGITransport(app=initialized_app), base_url="http://test") as client:
             request_data = {
-                "query": "What is machine learning?",
+                "query": "What does the document say about machine learning algorithms?",
                 "use_rag": True,
                 "top_k": 3,
                 "temperature": 0.7

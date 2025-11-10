@@ -3,6 +3,7 @@
 
 import json
 import logging
+import re
 import time
 from enum import Enum
 from pydantic import BaseModel, Field
@@ -64,11 +65,44 @@ class QueryClassifier:
             response = await self.llm_client.generate(
                 prompt=prompt,
                 temperature=0.1,  # Low temperature for consistent classification
-                max_tokens=150
+                max_tokens=250  # Increased to allow for complete JSON response
             )
 
-            # Parse JSON response
-            data = json.loads(response)
+            # Parse JSON response with error handling
+            # First, clean up response: remove thinking tags
+            cleaned_response = response.strip()
+            cleaned_response = re.sub(
+                r'<think>.*?</think>', '', cleaned_response, flags=re.DOTALL)
+            cleaned_response = cleaned_response.strip()
+
+            try:
+                # First try: direct JSON parse
+                data = json.loads(cleaned_response)
+            except json.JSONDecodeError:
+                # Second try: extract JSON from markdown code blocks
+                json_match = re.search(
+                    r'```(?:json)?\s*(\{.*?\})\s*```', cleaned_response, re.DOTALL)
+                if json_match:
+                    try:
+                        data = json.loads(json_match.group(1))
+                    except json.JSONDecodeError:
+                        # Third try: find any JSON-like structure
+                        json_match = re.search(
+                            r'\{[^{}]*"query_type"[^{}]*\}', cleaned_response)
+                        if json_match:
+                            data = json.loads(json_match.group(0))
+                        else:
+                            raise ValueError(
+                                f"Could not extract valid JSON from response: {response[:200]}")
+                else:
+                    # Third try: find any JSON-like structure
+                    json_match = re.search(
+                        r'\{[^{}]*"query_type"[^{}]*\}', cleaned_response)
+                    if json_match:
+                        data = json.loads(json_match.group(0))
+                    else:
+                        raise ValueError(
+                            f"Could not extract valid JSON from response: {response[:200]}")
 
             # Create classification object
             classification = QueryClassification(

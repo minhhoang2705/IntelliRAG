@@ -28,9 +28,18 @@ async def classify_node(state: QueryState, config=None) -> QueryState:
     Returns:
         Updated state with classification
     """
+    # If classification is already set (e.g., force_rag=True), skip classification
+    if state.get("classification") is not None:
+        logger.info(
+            f"Using pre-set classification: type={state['classification'].query_type.value}, "
+            f"confidence={state['classification'].confidence}"
+        )
+        return state
+
     try:
         # Extract classifier from config
-        classifier = config.get("configurable", {}).get("classifier") if config else None
+        classifier = config.get("configurable", {}).get(
+            "classifier") if config else None
         if not classifier:
             raise ValueError("Classifier not provided in config")
 
@@ -140,34 +149,52 @@ async def retrieve_node(state: QueryState, config=None) -> QueryState:
 
     Args:
         state: Current state with query
-        config: RunnableConfig with vectordb service
+        config: RunnableConfig with vectordb and embedding services
 
     Returns:
         Updated state with context
     """
     query = state["query"]
 
-    # Extract vectordb from config
-    vectordb_service = config.get("configurable", {}).get("vectordb") if config else None
+    # Extract services from config
+    vectordb_service = config.get("configurable", {}).get(
+        "vectordb") if config else None
+    embedding_service = config.get("configurable", {}).get(
+        "embedding") if config else None
+    collection_name = config.get("configurable", {}).get(
+        "collection_name", "default") if config else "default"
+
     if not vectordb_service:
         return {
             **state,
             "error": "VectorDB service not provided in config"
         }
 
+    if not embedding_service:
+        return {
+            **state,
+            "error": "Embedding service not provided in config"
+        }
+
     try:
+        # Embed the query
+        query_embedding = await embedding_service.embed_single_async(query)
+
         # Search for relevant documents
         results = await vectordb_service.search_vectors(
-            collection_name="default",
-            query_vector=[],  # Placeholder - will be replaced with actual embedding
+            collection_name=collection_name,
+            query_vector=query_embedding,
             limit=5
         )
 
-        # Extract context from results
+        # Extract context from results (include metadata for orchestrator)
         context = []
         for result in results:
-            text = result.payload.get("text", "")
-            context.append(text)
+            context.append({
+                "text": result.payload.get("text", ""),
+                "score": result.score,
+                "id": result.id
+            })
 
         logger.info(f"Retrieved {len(context)} context chunks")
 
@@ -212,7 +239,7 @@ def build_query_graph():
             END: END                   # Error cases
         }
     )
-    
+
     # Add conditional routing from retrieve (to handle errors)
     def route_after_retrieve(state: QueryState) -> str:
         """Route after retrieval - check for errors."""
