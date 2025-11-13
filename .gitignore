@@ -27,6 +27,8 @@ intellirag
 *.onnx
 *.pt
 *.pth
+*.tgz
+*.tar.gz
 
 # Qdrant database storage
 qdrant_storage/

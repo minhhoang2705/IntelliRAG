@@ -19,12 +19,12 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 
 # Wait 30-60 seconds for vLLM to load model, then verify:
 curl http://localhost:8000/v1/models
-# Expected: {"object":"list","data":[{"id":"Qwen/Qwen2.5-7B-Instruct",...}]}
+# Expected: {"object":"list","data":[{"id":"Qwen/Qwen3-0.6B-Instruct",...}]}
 ```
 
 ### Step 2: Run Integration Tests
@@ -132,12 +132,12 @@ docker run -d --name qdrant-test -p 6333:6333 qdrant/qdrant:latest
 
 ### GPU Out of Memory
 
-**Cause:** Insufficient VRAM for Qwen2.5-7B  
+**Cause:** Insufficient VRAM for Qwen3-0.6B  
 **Fix:**
 ```bash
 # Option 1: Lower GPU utilization
 docker run -d --gpus all -p 8000:8000 \
-  vllm/vllm-openai --model Qwen/Qwen2.5-7B-Instruct \
+  vllm/vllm-openai --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.7
 
 # Option 2: Use smaller model (3B)
@@ -171,7 +171,7 @@ uv run pytest tests/integration/ -v -m integration
 
 ✅ **All 14 tests should PASS when:**
 - Qdrant running on localhost:6333
-- vLLM running on localhost:8000 with Qwen2.5-7B-Instruct
+- vLLM running on localhost:8000 with Qwen3-0.6B-Instruct
 - NVIDIA GPU available with sufficient VRAM (>8GB)
 
 ✅ **Partial Success (2 tests) when:**

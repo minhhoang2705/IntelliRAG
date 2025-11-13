@@ -52,7 +52,7 @@ Git Push → GitHub Actions
 MLFlow (Parallel)          DVC (Parallel)
     ↓                          ↓
 Model Registry          Data Versioning
-    ├─ Qwen2.5-7B           ├─ Raw documents
+    ├─ Qwen3-0.6B           ├─ Raw documents
     ├─ MiniCPM-V-2          ├─ Processed chunks
     └─ Embeddings           └─ Evaluation datasets
 ```
@@ -392,7 +392,7 @@ MLFlow Tracking Server
         │   └─ Artifacts
         ↓
 MLFlow Model Registry
-        ├─ Model Name: qwen2.5-7b-instruct
+        ├─ Model Name: Qwen3-0.6B-instruct
         │   ├─ Version 1 (Staging)
         │   ├─ Version 2 (Production)
         │   └─ Version 3 (Archived)
@@ -600,11 +600,11 @@ class MLFlowService:
 mlflow_service = MLFlowService(tracking_uri="http://mlflow:5000")
 
 metadata = ModelMetadata(
-    name="qwen2.5-7b-instruct",
+    name="Qwen3-0.6B-instruct",
     version="v1.0.0",
     framework="transformers",
     task="text-generation",
-    base_model="Qwen/Qwen2.5-7B-Instruct",
+    base_model="Qwen/Qwen3-0.6B-Instruct",
     parameters={
         "max_tokens": 8192,
         "temperature": 0.7,
@@ -618,14 +618,14 @@ metadata = ModelMetadata(
 )
 
 version = mlflow_service.log_model(
-    model_path="./models/qwen2.5-7b-instruct",
-    model_name="qwen2.5-7b-instruct",
+    model_path="./models/Qwen3-0.6B-instruct",
+    model_name="Qwen3-0.6B-instruct",
     metadata=metadata,
 )
 
 # Promote to production
 mlflow_service.promote_model(
-    model_name="qwen2.5-7b-instruct",
+    model_name="Qwen3-0.6B-instruct",
     version=version,
     stage="Production",
 )
@@ -869,7 +869,7 @@ releases:
       - kserve/values.yaml
     set:
       - name: vllm.modelUri
-        value: gs://{{ env "GCS_BUCKET" }}/models/qwen2.5-7b-instruct
+        value: gs://{{ env "GCS_BUCKET" }}/models/Qwen3-0.6B-instruct
 
   # NGINX Ingress Controller
   - name: nginx-ingress
@@ -996,7 +996,7 @@ spec:
     model:
       modelFormat:
         name: vllm
-      storageUri: mlflow://qwen2.5-7b-instruct/Production  # MLFlow model registry
+      storageUri: mlflow://Qwen3-0.6B-instruct/Production  # MLFlow model registry
       resources:
         limits:
           cpu: "8"
@@ -1061,7 +1061,7 @@ def export_mlflow_metrics():
     """Export MLFlow metrics to Prometheus."""
     client = mlflow.tracking.MlflowClient()
 
-    for model_name in ["qwen2.5-7b-instruct", "embedding-model"]:
+    for model_name in ["Qwen3-0.6B-instruct", "embedding-model"]:
         versions = client.get_latest_versions(name=model_name, stages=["Production"])
 
         if versions:
@@ -1375,11 +1375,11 @@ vim tests/unit/test_<missing_module>.py
 **Issue**: MLFlow model not found
 ```bash
 # Solution: Check model registry
-mlflow models list --model-name qwen2.5-7b-instruct
+mlflow models list --model-name Qwen3-0.6B-instruct
 
 # Promote model to production
 mlflow models update \
-  --name qwen2.5-7b-instruct \
+  --name Qwen3-0.6B\
   --version 1 \
   --stage Production
 ```

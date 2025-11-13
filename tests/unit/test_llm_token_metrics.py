@@ -39,7 +39,7 @@ async def test_llm_client_tracks_input_tokens(mocker):
     """
     from app.services.llm_client import LLMClientService
 
-    client = LLMClientService(model="Qwen/Qwen2.5-7B-Instruct")
+    client = LLMClientService(model="Qwen/Qwen3-0.6B")
 
     # Mock OpenAI response with usage data
     mock_response = MagicMock()
@@ -60,7 +60,7 @@ async def test_llm_client_tracks_input_tokens(mocker):
     # Get initial token count
     initial_input_tokens = get_metric_value(
         'llm_token_count_total',
-        labels={'model': 'Qwen/Qwen2.5-7B-Instruct', 'type': 'input'}
+        labels={'model': 'Qwen/Qwen3-0.6B', 'type': 'input'}
     )
 
     # Generate response
@@ -75,7 +75,7 @@ async def test_llm_client_tracks_input_tokens(mocker):
     # Verify input token metric incremented by 50
     final_input_tokens = get_metric_value(
         'llm_token_count_total',
-        labels={'model': 'Qwen/Qwen2.5-7B-Instruct', 'type': 'input'}
+        labels={'model': 'Qwen/Qwen3-0.6B', 'type': 'input'}
     )
 
     assert final_input_tokens == initial_input_tokens + 50, \
@@ -90,7 +90,7 @@ async def test_llm_client_tracks_output_tokens(mocker):
     """
     from app.services.llm_client import LLMClientService
 
-    client = LLMClientService(model="Qwen/Qwen2.5-7B-Instruct")
+    client = LLMClientService(model="Qwen/Qwen3-0.6B")
 
     # Mock OpenAI response with usage data
     mock_response = MagicMock()
@@ -111,7 +111,7 @@ async def test_llm_client_tracks_output_tokens(mocker):
     # Get initial output token count
     initial_output_tokens = get_metric_value(
         'llm_token_count_total',
-        labels={'model': 'Qwen/Qwen2.5-7B-Instruct', 'type': 'output'}
+        labels={'model': 'Qwen/Qwen3-0.6B', 'type': 'output'}
     )
 
     # Generate response
@@ -126,7 +126,7 @@ async def test_llm_client_tracks_output_tokens(mocker):
     # Verify output token metric incremented by 30
     final_output_tokens = get_metric_value(
         'llm_token_count_total',
-        labels={'model': 'Qwen/Qwen2.5-7B-Instruct', 'type': 'output'}
+        labels={'model': 'Qwen/Qwen3-0.6B', 'type': 'output'}
     )
 
     assert final_output_tokens == initial_output_tokens + 30, \

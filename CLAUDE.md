@@ -98,7 +98,7 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - Model versioning
   - Canary deployments
 - **Models**:
-  - Qwen2.5-7B-Instruct (primary text model)
+  - Qwen3-0.6B(primary text model)
   - MiniCPM-V-2 (multimodal vision model)
 - **Deployment**:
   - Development: vLLM Docker container

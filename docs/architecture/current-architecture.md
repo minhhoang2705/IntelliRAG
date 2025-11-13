@@ -116,7 +116,7 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
   - GPU Utilization: 95%+
 
 #### Models
-- **Primary**: Qwen2.5-7B-Instruct (text generation)
+- **Primary**: Qwen3-0.6B(text generation)
 - **Multimodal**: MiniCPM-V-2 (vision tasks)
 
 #### Deployment

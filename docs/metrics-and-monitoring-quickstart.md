@@ -44,8 +44,8 @@ curl http://localhost:8000/metrics | grep -E "(http_requests_total|llm_token_cou
 Expected output:
 ```prometheus
 http_requests_total{method="GET",endpoint="/health",status_code="200"} 1.0
-llm_token_count_total{model="Qwen/Qwen2.5-7B-Instruct",type="input"} 0.0
-llm_token_count_total{model="Qwen/Qwen2.5-7B-Instruct",type="output"} 0.0
+llm_token_count_total{model="Qwen/Qwen3-0.6B-Instruct",type="input"} 0.0
+llm_token_count_total{model="Qwen/Qwen3-0.6B-Instruct",type="output"} 0.0
 ```
 
 ---

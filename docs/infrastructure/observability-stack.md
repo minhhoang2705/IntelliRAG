@@ -419,12 +419,12 @@ class RAGPipeline:
 
         # Track token usage
         llm_token_count.labels(
-            model='qwen2.5-7b-instruct',
+            model='Qwen3-0.6B-instruct',
             type='input'
         ).inc(response['usage']['prompt_tokens'])
 
         llm_token_count.labels(
-            model='qwen2.5-7b-instruct',
+            model='Qwen3-0.6B-instruct',
             type='output'
         ).inc(response['usage']['completion_tokens'])
 

@@ -94,7 +94,7 @@ Edit the `--model` parameter in `vllm-qwen-inference.yaml`:
 ```yaml
 command:
   - --model
-  - Qwen/Qwen2.5-7B-Instruct  # Larger model
+  - Qwen/Qwen3-0.6B # Larger model
 ```
 
 Or edit `EMBEDDING_MODEL` in `embedding-bge-m3-inference.yaml`:

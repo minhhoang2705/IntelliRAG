@@ -38,11 +38,11 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 ```
 - **Required for:** All LLM and RAG tests
-- **Model:** Qwen/Qwen2.5-7B-Instruct (7B parameters)
+- **Model:** Qwen/Qwen3-0.6B(7B parameters)
 - **URL:** http://localhost:8000/v1 (OpenAI-compatible)
 - **GPU:** Requires NVIDIA GPU (tested on RTX 4070Ti 12GB)
 
@@ -223,7 +223,7 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 
 # Wait for vLLM to load model (~30-60 seconds)
@@ -311,7 +311,7 @@ Expected output with vLLM running:
 **Workaround:** Start vLLM before running tests, check health endpoint
 
 ### 3. GPU Memory Requirements
-**Issue:** Qwen2.5-7B requires ~8GB VRAM  
+**Issue:** Qwen3-0.6B requires ~8GB VRAM  
 **Impact:** Cannot run on systems without adequate GPU  
 **Alternative:** Use smaller model (e.g., Qwen2.5-3B) for testing
 

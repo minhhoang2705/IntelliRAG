@@ -38,13 +38,13 @@ class TestSettings:
         """Test vLLM configuration loading."""
         with patch.dict(os.environ, {
             "VLLM_BASE_URL": "http://vllm:8000/v1",
-            "VLLM_MODEL": "Qwen/Qwen2.5-7B",
+            "VLLM_MODEL": "Qwen/Qwen3-0.6B",
         }, clear=True):
             from app.config import Settings
             test_settings = Settings()
 
             assert test_settings.vllm_base_url == "http://vllm:8000/v1"
-            assert test_settings.vllm_model == "Qwen/Qwen2.5-7B"
+            assert test_settings.vllm_model == "Qwen/Qwen3-0.6B"
 
     def test_embedding_configuration(self):
         """Test embedding model configuration."""

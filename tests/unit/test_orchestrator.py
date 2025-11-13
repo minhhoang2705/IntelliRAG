@@ -19,7 +19,7 @@ async def test_orchestrator_initialization():
     orchestrator = OrchestratorService(
         vectordb_url="http://localhost:6333",
         llm_base_url="http://localhost:8000/v1",
-        llm_model="Qwen/Qwen2.5-7B-Instruct"
+        llm_model="Qwen/Qwen3-0.6B-Instruct"
     )
 
     assert orchestrator.embedding_service is not None
@@ -205,7 +205,7 @@ async def test_ingest_accepts_existing_job_id(mocker):
 
     When job_id is provided, it should use that job instead of creating a new one.
     This prevents duplicate job creation in background task scenarios.
-    
+
     Expected: Uses provided job_id instead of creating a new one.
     """
     from app.services.orchestrator import OrchestratorService
@@ -238,7 +238,7 @@ async def test_ingest_accepts_existing_job_id(mocker):
 
     # Should return the same job_id, not create a new one
     assert returned_job_id == existing_job_id
-    
+
     # Should only have one job in the manager
     all_jobs = orchestrator.job_state_manager._jobs
     assert len(all_jobs) == 1
@@ -358,7 +358,7 @@ async def test_ingest_accepts_existing_job_id(mocker):
 
     When job_id is provided, it should use that job instead of creating a new one.
     This prevents duplicate job creation in background task scenarios.
-    
+
     Expected: Uses provided job_id instead of creating a new one.
     """
     from app.services.orchestrator import OrchestratorService
@@ -391,7 +391,7 @@ async def test_ingest_accepts_existing_job_id(mocker):
 
     # Should return the same job_id, not create a new one
     assert returned_job_id == existing_job_id
-    
+
     # Should only have one job in the manager
     all_jobs = orchestrator.job_state_manager._jobs
     assert len(all_jobs) == 1

@@ -19,11 +19,11 @@ async def test_llm_client_initialization():
     client = LLMClientService(
         base_url="http://localhost:8000/v1",
         api_key="dummy-key",
-        model="Qwen/Qwen2.5-7B-Instruct"
+        model="Qwen/Qwen3-0.6B-Instruct"
     )
 
     assert client.base_url == "http://localhost:8000/v1"
-    assert client.model == "Qwen/Qwen2.5-7B-Instruct"
+    assert client.model == "Qwen/Qwen3-0.6B-Instruct"
     assert client.client is not None
 
 

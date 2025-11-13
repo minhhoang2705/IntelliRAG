@@ -442,7 +442,7 @@
 - Token counting
 
 **Supported Models:**
-- Qwen2.5-7B-Instruct (primary)
+- Qwen3-0.6B(primary)
 - MiniCPM-V-2 (multimodal, planned)
 
 **Test Coverage:**

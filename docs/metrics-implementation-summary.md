@@ -251,8 +251,8 @@ http_request_duration_seconds_count{method="GET",endpoint="/api/v1/query"} 150.0
 
 # HELP llm_token_count Total tokens processed by LLM
 # TYPE llm_token_count counter
-llm_token_count_total{model="Qwen/Qwen2.5-7B-Instruct",type="input"} 50000.0
-llm_token_count_total{model="Qwen/Qwen2.5-7B-Instruct",type="output"} 30000.0
+llm_token_count_total{model="Qwen/Qwen3-0.6B-Instruct",type="input"} 50000.0
+llm_token_count_total{model="Qwen/Qwen3-0.6B-Instruct",type="output"} 30000.0
 ```
 
 ---

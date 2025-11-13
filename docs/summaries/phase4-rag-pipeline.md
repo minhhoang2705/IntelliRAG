@@ -74,7 +74,7 @@ User → FastAPI → Orchestrator → RAG Pipeline → {Embedding, VectorDB, LLM
 ```python
 client = LLMClientService(
     base_url="http://localhost:8000/v1",
-    model="Qwen/Qwen2.5-7B-Instruct"
+    model="Qwen/Qwen3-0.6B-Instruct"
 )
 
 answer = await client.generate(
@@ -256,7 +256,7 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct
+  --model Qwen/Qwen3-0.6B-Instruct
 ```
 
 ### Start FastAPI Server
@@ -358,7 +358,7 @@ Result: Test PASSES ✅
 | **End-to-End RAG Query** | **~300-400ms** | **~5-10 QPS** |
 
 **Note:** Performance depends on:
-- Model size (Qwen2.5-7B vs larger)
+- Model size (Qwen3-0.6B vs larger)
 - GPU availability (RTX 4070Ti 12GB)
 - Batch size and concurrent requests
 - Collection size in Qdrant

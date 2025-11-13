@@ -113,7 +113,7 @@ IntelliRAG is a production-ready RAG system with cloud-native architecture, curr
 - LangChain/LangGraph - document processing, query routing
 - BGE-M3 Embeddings - 1024-dim, multilingual, hybrid retrieval
 - vLLM - high-throughput inference (793 TPS, 19x vs Ollama)
-- Qwen2.5-7B - primary LLM model
+- Qwen3-0.6B - primary LLM model
 
 **Application:**
 - FastAPI - async API with dependency injection
@@ -147,7 +147,7 @@ IntelliRAG is a production-ready RAG system with cloud-native architecture, curr
 │            ↓                ↓                                │
 │          Format Prompt with Context                         │
 │            ↓                                                 │
-│         vLLM Inference (Qwen2.5-7B)                         │
+│         vLLM Inference (Qwen3-0.6B)                         │
 │            ↓                                                 │
 │        Response to User                                      │
 └─────────────────────────────────────────────────────────────┘

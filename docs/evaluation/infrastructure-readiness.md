@@ -305,7 +305,7 @@ InferenceService:
 InferenceService:
   name: vllm-qwen-7b
   predictor:
-    model: Qwen/Qwen2.5-7B-Instruct
+    model: Qwen/Qwen3-0.6B-Instruct
     runtime: vllm
     resources:
       requests:

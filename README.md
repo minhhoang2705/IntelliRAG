@@ -106,7 +106,7 @@ docker-compose up -d
 **ML & Inference:**
 - BGE-M3 (1024-dim embeddings, multilingual)
 - vLLM (high-throughput LLM serving)
-- Qwen2.5-7B-Instruct (primary text model)
+- Qwen3-0.6B(primary text model)
 
 **Infrastructure:**
 - Kubernetes (GKE Autopilot planned)

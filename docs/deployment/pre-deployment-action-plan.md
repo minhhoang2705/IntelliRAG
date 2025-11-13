@@ -572,7 +572,7 @@ ingress:
         - intellirag.example.com
 
 llm:
-  model: "Qwen/Qwen2.5-7B-Instruct"
+  model: "Qwen/Qwen3-0.6B-Instruct"
 ```
 
 **Qdrant StatefulSet (`qdrant/templates/statefulset.yaml`):**
@@ -809,14 +809,14 @@ model_name = "qwen2-5-7b-instruct"
 
 # Log model metadata
 with mlflow.start_run(run_name="vllm-qwen2.5-production") as run:
-    mlflow.log_param("model_id", "Qwen/Qwen2.5-7B-Instruct")
+    mlflow.log_param("model_id", "Qwen/Qwen3-0.6B-Instruct")
     mlflow.log_param("framework", "vllm")
     mlflow.log_param("gpu", "nvidia-t4")
     mlflow.log_param("max_tokens", 8192)
     mlflow.log_param("quantization", "none")
     
     # Log model artifact (Hugging Face model ID)
-    mlflow.log_text("Qwen/Qwen2.5-7B-Instruct", "model_id.txt")
+    mlflow.log_text("Qwen/Qwen3-0.6B-Instruct", "model_id.txt")
     
     # Register model
     model_uri = f"runs:/{run.info.run_id}/model"
@@ -835,7 +835,7 @@ client.transition_model_version_stage(
 - [ ] Create GCS bucket for MLFlow artifacts
 - [ ] Deploy MLFlow server to GKE
 - [ ] Expose MLFlow UI via ingress
-- [ ] Register Qwen2.5-7B model
+- [ ] Register Qwen3-0.6B model
 - [ ] Register BGE-M3 embedding model
 - [ ] Set up model versioning workflow
 - [ ] Integrate MLFlow with CI/CD
@@ -985,7 +985,7 @@ spec:
           nvidia.com/gpu: "1"
       env:
         - name: VLLM_MODEL_NAME
-          value: "Qwen/Qwen2.5-7B-Instruct"
+          value: "Qwen/Qwen3-0.6B-Instruct"
         - name: VLLM_GPU_MEMORY_UTILIZATION
           value: "0.95"
         - name: VLLM_MAX_MODEL_LEN
@@ -1029,7 +1029,7 @@ kubectl get inferenceservice -n intellirag
 # Test inference
 curl -X POST http://vllm-qwen-predictor.intellirag.svc.cluster.local/v1/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "Qwen/Qwen2.5-7B-Instruct", "prompt": "Hello", "max_tokens": 50}'
+  -d '{"model": "Qwen/Qwen3-0.6B-Instruct", "prompt": "Hello", "max_tokens": 50}'
 ```
 
 **Deliverables:**
