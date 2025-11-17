@@ -119,12 +119,17 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
 - **Primary**: Qwen3-0.6B(text generation)
 - **Multimodal**: MiniCPM-V-2 (vision tasks)
 
-#### Deployment
-- **Development**: vLLM Docker container with GPU passthrough
-- **Production**: KServe InferenceService on GKE
-  - Autoscaling with scale-to-zero
-  - Model versioning
-  - Canary deployments
+#### Deployment (Hybrid Architecture)
+- **Local GPU Server** (RTX 4070Ti):
+  - **Development**: vLLM Docker container with GPU passthrough (port 8000)
+  - **Production/Demo**: KServe InferenceService on local minikube (port 8080)
+    - vLLM InferenceService (Qwen3-0.6B)
+    - BGE-M3 Embedding InferenceService
+    - Exposed via CloudFlare Tunnel: `https://gpu.intellirag.example.com`
+- **GKE Cloud**: FastAPI, Qdrant, Observability (NO GPU nodes)
+  - Standard cluster: 1-3 nodes (e2-standard-2)
+  - Namespaces: app, kserve (reserved), observability
+  - Cost optimization: ~$2,000/month saved vs GKE with GPU nodes
 
 ### 6. API Gateway
 
@@ -155,19 +160,27 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
 ```
 User Upload
     ↓
-NGINX → FastAPI Orchestrator
+NGINX Ingress (GKE) → FastAPI Orchestrator (GKE)
     ↓
 Store Raw Document in GCS
     ↓
-Preprocessing Pipeline:
+Preprocessing Pipeline (FastAPI on GKE):
     1. Load from GCS (LangChain GCS Loader)
-    2. Parse (Docling)
+    2. Parse (Docling for PDF/images)
     3. Chunk (LangChain RecursiveCharacterTextSplitter)
-    4. Embed (Sentence Transformers)
+    4. Embed chunks
+        ↓ HTTPS
+    CloudFlare Tunnel (https://gpu.intellirag.example.com)
+        ↓
+    Local GPU Server (minikube)
+        ↓
+    BGE-M3 InferenceService
+        ↓ Return 1024-dim embeddings
+    FastAPI (GKE)
     ↓
-Store in Qdrant (vectors + metadata payloads)
+Store in Qdrant (GKE - vectors + metadata payloads)
     ↓
-Track with DVC (data versioning)
+Job State Management (track progress)
 ```
 
 ### Query/RAG Flow
@@ -175,21 +188,49 @@ Track with DVC (data versioning)
 ```
 User Query
     ↓
-NGINX → FastAPI Orchestrator
+NGINX Ingress (GKE) → FastAPI Orchestrator (GKE)
     ↓
 LangGraph Agent (Query Analysis)
-    ├─> Direct Answer? → vLLM (no retrieval)
+    ├─> Direct Answer? (skip retrieval)
+    │   ↓ HTTPS
+    │   CloudFlare Tunnel → Local GPU → vLLM → Return answer
+    │
     └─> RAG Needed? ↓
-        1. Embed query (Sentence Transformers)
-        2. Retrieve from Qdrant (vectors + metadata)
-        3. Format prompt (query + context)
-        4. Generate with vLLM
+        1. Embed query
+            ↓ HTTPS
+        CloudFlare Tunnel (https://gpu.intellirag.example.com)
+            ↓
+        Local GPU Server (minikube)
+            ↓
+        BGE-M3 InferenceService
+            ↓ Return query embedding
+        FastAPI (GKE)
+            ↓
+        2. Retrieve from Qdrant (GKE - vector search)
+            ↓
+        3. Format prompt (query + retrieved context)
+            ↓
+        4. Generate answer
+            ↓ HTTPS
+        CloudFlare Tunnel
+            ↓
+        Local GPU Server (minikube)
+            ↓
+        vLLM InferenceService (Qwen3-0.6B)
+            ↓ Return generated text
+        FastAPI (GKE)
     ↓
 Return Response to User
+
+Performance (Hybrid Architecture):
+- vLLM P99 Latency: 80ms (local GPU)
+- CloudFlare Tunnel Overhead: +10-30ms
+- Total P95 Latency: <200ms ✅
+- Expected Load: 150 requests/minute
 ```
 
 **Query Routing Logic:**
-- Factual questions → Direct answer
+- Factual questions → Direct answer (no RAG)
 - Domain-specific queries → RAG retrieval
 - Conversational queries → Direct answer
 - Document-based queries → RAG retrieval
@@ -240,21 +281,36 @@ Git Push → GitHub Actions
 
 ## Infrastructure
 
-### Kubernetes
-**Current Status**: Configurations ready for local deployment, GKE production deployment planned
+### Kubernetes (Hybrid Deployment)
+**Current Status**: GKE cluster provisioned, local GPU setup next
 
-- **KServe Model Serving**: ✅ CONFIGURED
-  - BGE-M3 embedding service inference configuration
-  - vLLM Qwen inference configuration
-  - Namespace configurations
+- **GKE Standard (Cloud)**: ✅ PROVISIONED
+  - Cluster: intellirag-cluster (1-3 nodes, e2-standard-2, us-central1)
+  - Namespaces: app, kserve (reserved), observability
+  - Service accounts with Workload Identity
+  - GCS buckets for data and models
+  - Terraform state in GCS backend
+- **Minikube (Local GPU Server)**: ⚠️ NEXT PHASE
+  - GPU: NVIDIA RTX 4070Ti 12GB
+  - KServe v0.14.1 for model serving
+  - vLLM InferenceService (Qwen3-0.6B)
+  - BGE-M3 Embedding InferenceService
+- **CloudFlare Tunnel**: ⚠️ NEXT PHASE
+  - Secure connectivity between GKE and local GPU
+  - Endpoint: https://gpu.intellirag.example.com
 - **Observability Stack**: ✅ CONFIGURED
   - Helmfile for Prometheus, Grafana, Jaeger, Loki
-  - Namespace configurations
+  - Namespace: observability
   - Values files for each component
-- **Application Deployment**: ⚠️ PARTIALLY READY
-  - FastAPI applications (HPA configuration planned)
-  - Qdrant vector database (needs configuration)
-- **IaC**: ❌ PLANNED - Terraform for GKE provisioning not yet implemented
+  - Ready for deployment to GKE
+- **Application Deployment**: ⚠️ NEXT PHASE
+  - FastAPI Docker image (needs build/push to GCR)
+  - Qdrant StatefulSet (needs deployment to GKE)
+  - ConfigMaps for CloudFlare Tunnel endpoints
+  - HPA configuration (planned)
+- **IaC**: ✅ IMPLEMENTED
+  - Terraform for GKE provisioning (completed)
+  - State stored in GCS: gs://intellirag-aide1-terraform-state
 
 ### Local Development
 - **GPU**: RTX 4070Ti 12GB

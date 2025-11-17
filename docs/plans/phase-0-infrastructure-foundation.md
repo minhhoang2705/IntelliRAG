@@ -8,10 +8,10 @@
 
 ## 📋 Overview
 
-This phase establishes the foundational infrastructure for IntelliRAG's hybrid deployment architecture. We'll provision a GKE Autopilot cluster for stateless application services and set up a local Kubernetes environment (minikube) with GPU support for model inference.
+This phase establishes the foundational infrastructure for IntelliRAG's hybrid deployment architecture. We'll provision a GKE Standard cluster for stateless application services and set up a local Kubernetes environment (minikube) with GPU support for model inference.
 
 **Architecture Components**:
-- **GKE Autopilot**: Managed Kubernetes cluster for FastAPI application, databases, and orchestration
+- **GKE Standard**: Managed Kubernetes cluster for FastAPI application, databases, and orchestration (1-2 nodes, e2-standard-4)
 - **Local Minikube**: Single-node Kubernetes with NVIDIA GPU passthrough for KServe model serving
 - **CloudFlare Tunnel**: Secure connectivity between GKE and local GPU server
 - **Terraform**: Infrastructure as Code for reproducible GKE provisioning
@@ -21,7 +21,7 @@ This phase establishes the foundational infrastructure for IntelliRAG's hybrid d
 ## 🎯 Objectives
 
 ### Primary Goals
-1. Provision production-grade GKE Autopilot cluster via Terraform
+1. Provision production-grade GKE Standard cluster via Terraform (1-2 nodes, e2-standard-4, 50GB pd-standard)
 2. Configure local minikube with GPU support for model serving
 3. Establish secure CloudFlare Tunnel for GKE ↔ GPU connectivity
 4. Create Kubernetes namespaces and RBAC policies
@@ -58,7 +58,7 @@ gcloud services enable cloudresourcemanager.googleapis.com
 ### Local Machine Requirements
 - **OS**: Ubuntu 22.04 LTS
 - **Hardware**: NVIDIA RTX 4070Ti (12GB VRAM)
-- **RAM**: 32GB minimum
+- **RAM**: 22GB minimum
 - **Storage**: 500GB+ SSD
 - **Network**: Static IP or DDNS
 
@@ -187,13 +187,14 @@ resource "google_compute_subnetwork" "gke_subnet" {
   }
 }
 
-# GKE Autopilot Cluster
+# GKE Standard Cluster
 resource "google_container_cluster" "primary" {
   name     = var.cluster_name
   location = var.region
 
-  # Autopilot mode
-  enable_autopilot = true
+  # Remove default node pool and manage separately
+  remove_default_node_pool = true
+  initial_node_count       = 1
 
   # Network configuration
   network    = google_compute_network.vpc.name
@@ -208,13 +209,6 @@ resource "google_container_cluster" "primary" {
   # Workload Identity
   workload_identity_config {
     workload_pool = "${var.project_id}.svc.id.goog"
-  }
-
-  # Maintenance window
-  maintenance_policy {
-    daily_maintenance_window {
-      start_time = "03:00"
-    }
   }
 
   # Release channel
@@ -243,6 +237,43 @@ resource "google_container_cluster" "primary" {
 
   logging_config {
     enable_components = ["SYSTEM_COMPONENTS", "WORKLOADS"]
+  }
+}
+
+# Node Pool for application workloads
+resource "google_container_node_pool" "app_pool" {
+  name     = "${var.cluster_name}-app-pool"
+  location = var.region
+  cluster  = google_container_cluster.primary.name
+
+  autoscaling {
+    min_node_count = var.min_node_count
+    max_node_count = var.max_node_count
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+
+  node_config {
+    machine_type = var.node_machine_type
+    disk_size_gb = var.node_disk_size_gb
+    disk_type    = var.node_disk_type
+
+    # OAuth scopes for GCP API access
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/devstorage.read_only",
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring",
+    ]
+
+    # Workload Identity
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
+    tags = ["gke-node", "${var.cluster_name}"]
   }
 }
 
@@ -308,6 +339,36 @@ variable "services_cidr" {
   type        = string
   default     = "10.8.0.0/20"
 }
+
+variable "min_node_count" {
+  description = "Minimum number of nodes in the node pool"
+  type        = number
+  default     = 1
+}
+
+variable "max_node_count" {
+  description = "Maximum number of nodes in the node pool"
+  type        = number
+  default     = 2
+}
+
+variable "node_machine_type" {
+  description = "Machine type for nodes"
+  type        = string
+  default     = "e2-standard-4"
+}
+
+variable "node_disk_size_gb" {
+  description = "Disk size for nodes in GB"
+  type        = number
+  default     = 50
+}
+
+variable "node_disk_type" {
+  description = "Disk type for nodes"
+  type        = string
+  default     = "pd-standard"
+}
 ```
 
 ### 1.5 Define Outputs
@@ -345,15 +406,25 @@ output "subnet_name" {
   description = "GKE subnet name"
   value       = google_compute_subnetwork.gke_subnet.name
 }
+
+output "node_pool_name" {
+  description = "Node pool name"
+  value       = google_container_node_pool.app_pool.name
+}
 ```
 
 ### 1.6 Create terraform.tfvars
 
 **File**: `terraform/terraform.tfvars`
 ```hcl
-project_id   = "YOUR_PROJECT_ID"
-region       = "us-central1"
-cluster_name = "intellirag-cluster"
+project_id        = "YOUR_PROJECT_ID"
+region            = "us-central1"
+cluster_name      = "intellirag-cluster"
+min_node_count    = 1
+max_node_count    = 2
+node_machine_type = "e2-standard-4"
+node_disk_size_gb = 50
+node_disk_type    = "pd-standard"
 ```
 
 ### 1.7 Provision Infrastructure
@@ -376,7 +447,7 @@ terraform plan -out=tfplan
 # Apply infrastructure
 terraform apply tfplan
 
-# This will take 10-15 minutes to provision GKE Autopilot cluster
+# This will take 10-15 minutes to provision GKE Standard cluster
 ```
 
 ### 1.8 Configure kubectl Access
@@ -393,7 +464,7 @@ kubectl get nodes
 
 # Expected output:
 # - Cluster endpoint
-# - Autopilot-managed nodes in Ready state
+# - Standard GKE nodes in Ready state (1-2 nodes, e2-standard-4)
 ```
 
 ---
@@ -834,8 +905,14 @@ kubectl apply -f kubernetes/minikube-pv.yaml --context minikube
 # Check cluster health
 kubectl get componentstatuses
 
-# List nodes
+# List nodes and verify configuration
 kubectl get nodes -o wide
+
+# Verify node pool configuration
+gcloud container node-pools list --cluster intellirag-cluster --region us-central1
+
+# Check node details (should show e2-standard-4, 50GB disk)
+kubectl describe nodes | grep -E "Name:|Instance Type:|Disk Size:"
 
 # Check system pods
 kubectl get pods -n kube-system
@@ -984,6 +1061,32 @@ gcloud iam service-accounts add-iam-policy-binding \
 
 # Verify pod annotation
 kubectl get sa intellirag-app -n app -o yaml | grep iam.gke.io
+```
+
+### Issue 5: Node Pool Not Scaling or Nodes Not Ready
+
+**Error**: Nodes not coming up or autoscaling not working
+
+**Solution**:
+```bash
+# Check node pool status
+kubectl get nodes -o wide
+
+# Check node pool details
+gcloud container node-pools describe app-pool \
+  --cluster intellirag-cluster \
+  --region us-central1
+
+# Verify autoscaling configuration
+gcloud container clusters describe intellirag-cluster \
+  --region us-central1 \
+  --format="value(autoscaling)"
+
+# Check node resources
+kubectl describe nodes | grep -A 10 "Allocated resources"
+
+# If nodes are not ready, check events
+kubectl get events --sort-by='.lastTimestamp' | tail -20
 ```
 
 ---

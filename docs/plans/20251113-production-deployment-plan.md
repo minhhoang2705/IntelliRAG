@@ -49,9 +49,10 @@ This is the master implementation plan for deploying IntelliRAG to production. T
 **Objective**: Provision GKE cluster and establish local Kubernetes environment
 
 **Key Deliverables**:
-- Terraform modules for GKE Autopilot cluster
-- Minikube setup with GPU support on local server
-- CloudFlare Tunnel for secure connectivity
+- Terraform modules for GKE Standard cluster (min 1 node, max 3 nodes, machine type: e2-standard-2, disk size: 50GB)
+- Minikube setup with GPU support on local server (v1.32.0+)
+- KServe v0.14.1 installation on minikube
+- CloudFlare Tunnel for secure connectivity (cloudflared)
 - Kubernetes namespaces and RBAC configurations
 
 **Detailed Instructions**: [phase-0-infrastructure-foundation.md](./phase-0-infrastructure-foundation.md)
@@ -77,12 +78,13 @@ This is the master implementation plan for deploying IntelliRAG to production. T
 **Objective**: Deploy KServe inference services for LLM and embedding models
 
 **Key Deliverables**:
-- KServe InferenceServices for vLLM (Qwen3-0.6B)
-- KServe InferenceServices for embeddings
-- Model artifacts stored in GCS
-- OpenAI-compatible API endpoints
-- Update application to use KServe endpoints
-- Performance benchmarks and optimization
+- KServe InferenceServices for vLLM (Qwen3-0.6B) on local minikube
+- KServe InferenceServices for BGE-M3 embeddings on local minikube
+- CloudFlare Tunnel exposing local KServe endpoints
+- OpenAI-compatible API endpoints via tunnel
+- Update GKE FastAPI to use CloudFlare Tunnel endpoints
+- Performance benchmarks and latency optimization
+- End-to-end testing (GKE → CloudFlare Tunnel → Local GPU)
 
 **Detailed Instructions**: [phase-2-model-serving.md](./phase-2-model-serving.md)
 
@@ -512,8 +514,13 @@ logcli query '{namespace="app"}' --limit=100 --since=1h
 This implementation plan provides a comprehensive roadmap for deploying IntelliRAG to production with enterprise-grade reliability, observability, and automation.
 
 **Key Achievements**:
-- **Cost Efficiency**: Hybrid architecture saves $500/month vs full GKE GPU deployment
+- **Cost Efficiency**: Hybrid architecture saves ~$2,000/month vs full GKE GPU deployment
+  - GKE Standard (1-3 nodes, e2-standard-2): ~$58-176/month
+  - Local GPU electricity: ~$25/month
+  - Total: ~$85-200/month vs $2,000+/month with GKE GPU nodes
 - **Performance**: vLLM achieves 19x throughput improvement vs Ollama
+  - P95 latency <200ms (including CloudFlare Tunnel overhead)
+  - Expected load: 150 requests/minute
 - **Observability**: Complete metrics, logs, and traces for all services
 - **Reliability**: Autoscaling, health checks, and automated rollbacks
 - **Maintainability**: Infrastructure as Code, GitOps, and automated testing
