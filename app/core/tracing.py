@@ -1,6 +1,6 @@
 """OpenTelemetry tracing setup for distributed tracing.
 
-Date: 2025-11-05
+
 """
 
 from opentelemetry import trace

@@ -1,6 +1,4 @@
 """Query endpoint for RAG system.
-
-Date: 2025-11-05
 """
 
 from fastapi import APIRouter, Depends

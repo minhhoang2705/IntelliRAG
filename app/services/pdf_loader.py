@@ -3,7 +3,7 @@
 This module provides PDFLoaderService which uses LangChain's DoclingLoader
 for advanced PDF parsing with superior layout understanding.
 
-Date: 2025-10-25
+
 """
 
 import logging

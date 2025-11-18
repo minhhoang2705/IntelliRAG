@@ -7,7 +7,7 @@ This module provides in-memory tracking of ingestion jobs with production-ready 
 - TTL-based cleanup for old jobs
 - Comprehensive job lifecycle management
 
-Date: 2025-10-28
+
 Updated: 2025-10-29 - Enhanced with production features (TDD)
 """
 
@@ -33,7 +33,7 @@ class JobState:
 
     def __init__(self, job_id: str, file_path: str, collection_name: str):
         """Initialize job state.
-        
+
         Args:
             job_id: Unique job identifier (UUID)
             file_path: Path to file being processed
@@ -56,7 +56,7 @@ class JobStateManager:
 
     def __init__(self, ttl_seconds: int = 3600):
         """Initialize job state manager.
-        
+
         Args:
             ttl_seconds: Time-to-live for completed/failed jobs (default: 1 hour)
         """
@@ -66,11 +66,11 @@ class JobStateManager:
 
     def create_job(self, file_path: str, collection_name: str) -> str:
         """Create a new job with UUID.
-        
+
         Args:
             file_path: Path to file to be processed
             collection_name: Target collection name
-            
+
         Returns:
             Job ID (UUID string)
         """
@@ -81,10 +81,10 @@ class JobStateManager:
 
     def get_job(self, job_id: str) -> Optional[JobState]:
         """Get job state by ID.
-        
+
         Args:
             job_id: Job identifier
-            
+
         Returns:
             JobState if found, None otherwise
         """
@@ -92,7 +92,7 @@ class JobStateManager:
 
     def update_job_status(self, job_id: str, status: JobStatus, error: str = None):
         """Update the status of a job.
-        
+
         Args:
             job_id: Job identifier
             status: New status
@@ -108,7 +108,7 @@ class JobStateManager:
 
     def update_job_progress(self, job_id: str, progress: int, message: str = ""):
         """Update job progress percentage.
-        
+
         Args:
             job_id: Job identifier
             progress: Progress percentage (will be clamped to 0-100)
@@ -124,7 +124,7 @@ class JobStateManager:
 
     def complete_job(self, job_id: str, chunks_created: int):
         """Mark job as completed with results.
-        
+
         Args:
             job_id: Job identifier
             chunks_created: Number of chunks created during ingestion
@@ -140,27 +140,27 @@ class JobStateManager:
 
     def cleanup_old_jobs(self) -> int:
         """Remove old completed/failed jobs past TTL.
-        
+
         Only removes jobs in COMPLETED or FAILED status that haven't been
         updated within the TTL window. PENDING and PROCESSING jobs are never
         cleaned up.
-        
+
         Returns:
             Number of jobs cleaned up
         """
         cutoff_time = datetime.now(timezone.utc) - self._ttl
-        
+
         jobs_to_remove = [
             job_id
             for job_id, job in self._jobs.items()
             if job.status in (JobStatus.COMPLETED, JobStatus.FAILED)
             and job.updated_at < cutoff_time
         ]
-        
+
         for job_id in jobs_to_remove:
             del self._jobs[job_id]
-        
+
         if jobs_to_remove:
             logger.info(f"Cleaned up {len(jobs_to_remove)} old jobs")
-        
+
         return len(jobs_to_remove)

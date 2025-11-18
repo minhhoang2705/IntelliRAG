@@ -11,7 +11,7 @@ Key Features:
 - Multilingual (100+ languages)
 - Long context support (up to 8192 tokens)
 
-Date: 2025-10-24
+
 """
 
 from typing import Optional, List, Dict, Any

@@ -1,14 +1,11 @@
 """
 Standalone Embedding Service for IntelliRAG
-Serves BAAI/bge-m3 embeddings via FastAPI
 Always-on service - model pre-loaded on startup
 
 Configurable via environment variables:
-- EMBEDDING_MODEL: Model to load (default: BAAI/bge-m3)
+- EMBEDDING_MODEL: Model to load (default: google/embeddinggemma-300m)
 - DEVICE: cpu or cuda (default: cpu)
-- MAX_BATCH_SIZE: Maximum batch size (default: 128)
-
-Date: 2025-11-04
+- MAX_BATCH_SIZE: Maximum batch size (default: 32)
 """
 
 from contextlib import asynccontextmanager

@@ -2,9 +2,10 @@
 
 This module provides the main FastAPI application with RAG endpoints.
 
-Date: 2025-10-17
+2025-10-17
 """
 
+from app.api.middleware.metrics_middleware import MetricsMiddleware
 from contextlib import asynccontextmanager
 import os
 from fastapi import FastAPI, Response
@@ -75,7 +76,6 @@ app = FastAPI(
 FastAPIInstrumentor.instrument_app(app)
 
 # Add HTTP metrics middleware
-from app.api.middleware.metrics_middleware import MetricsMiddleware
 app.add_middleware(MetricsMiddleware)
 
 # Include routers

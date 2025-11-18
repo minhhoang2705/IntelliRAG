@@ -27,7 +27,7 @@ async def test_rag_pipeline_with_real_services(check_vllm):
     from tests.fixtures.integration_data import SAMPLE_DOCUMENTS
 
     # Initialize services
-    embedding_svc = EmbeddingService(device="cpu")
+    embedding_svc = EmbeddingService(device="cpu", use_remote=True)
     vectordb_svc = VectorDBService(url="http://localhost:6333")
     llm_client = LLMClientService(
         base_url="http://localhost:8000/v1",

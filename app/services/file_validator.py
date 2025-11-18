@@ -8,7 +8,7 @@ This module provides FileValidatorService which handles all security validations
 
 Extracted from the old BaseHandler to support both old and new loaders.
 
-Date: 2025-10-25
+
 """
 
 import logging
@@ -37,7 +37,8 @@ class FileValidatorService:
             max_file_size: Maximum allowed file size in bytes (default: 50MB)
         """
         self.max_file_size = max_file_size if max_file_size is not None else self.MAX_FILE_SIZE
-        logger.info(f"Initialized FileValidatorService with max_file_size={self.max_file_size} bytes")
+        logger.info(
+            f"Initialized FileValidatorService with max_file_size={self.max_file_size} bytes")
 
     def validate(
         self,

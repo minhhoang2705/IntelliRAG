@@ -3,7 +3,7 @@
 This module provides SemanticChunkerService which uses LangChain's
 SemanticChunker for text splitting based on semantic meaning.
 
-Date: 2025-10-25
+
 """
 
 import logging

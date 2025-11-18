@@ -4,7 +4,7 @@ This module provides fixtures and configuration for integration tests
 that use real services (Qdrant, embedding models).
 
 
-Date: 2025-10-17
+
 """
 
 import pytest
@@ -76,24 +76,25 @@ def check_vllm():
 @pytest_asyncio.fixture(scope="function")
 async def initialized_app():
     """Fixture that provides FastAPI app with initialized orchestrator.
-    
+
     This fixture properly initializes the app using the lifespan context manager
     to ensure the orchestrator is available for tests.
     """
     import logging
     from app import main
-    
+
     logger = logging.getLogger(__name__)
-    
+
     # Verify environment variables are loaded
     gcs_project = os.getenv("GCP_PROJECT_ID")
     gcs_bucket = os.getenv("GCS_BUCKET_NAME")
     gcs_creds = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    
+
     logger.info(f"Test environment - GCP_PROJECT_ID: {gcs_project}")
     logger.info(f"Test environment - GCS_BUCKET_NAME: {gcs_bucket}")
-    logger.info(f"Test environment - GOOGLE_APPLICATION_CREDENTIALS: {gcs_creds}")
-    
+    logger.info(
+        f"Test environment - GOOGLE_APPLICATION_CREDENTIALS: {gcs_creds}")
+
     # Manually trigger lifespan startup
     async with main.lifespan(main.app):
         # Verify orchestrator is initialized

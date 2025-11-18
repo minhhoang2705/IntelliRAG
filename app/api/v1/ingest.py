@@ -2,9 +2,6 @@
 
 Provides endpoints for triggering document ingestion and checking job status.
 Uses FastAPI's BackgroundTasks for non-blocking async processing.
-
-Date: 2025-10-29
-Updated: 2025-10-29 - Async background processing with progress tracking (TDD GREEN phase)
 """
 
 import logging

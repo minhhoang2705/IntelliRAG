@@ -11,7 +11,7 @@ Key Features:
 - Configurable batch size to prevent OOM
 - Future-proofed for multimodal embeddings
 
-Date: 2025-10-15
+
 """
 
 from typing import Optional, List
@@ -386,7 +386,8 @@ class EmbeddingService(BaseEmbeddingService):
         with tracer.start_as_current_span("embedding.batch") as span:
             # Set span attributes
             span.set_attribute("embedding.batch_size", len(texts))
-            span.set_attribute("embedding.mode", "remote" if self.use_remote else "local")
+            span.set_attribute(
+                "embedding.mode", "remote" if self.use_remote else "local")
 
             import asyncio
             loop = asyncio.get_event_loop()

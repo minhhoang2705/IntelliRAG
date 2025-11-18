@@ -3,7 +3,7 @@
 This module provides the OrchestratorService which initializes and
 coordinates all services for the RAG system.
 
-Date: 2025-10-17
+
 """
 
 from app.services.embedding import EmbeddingService

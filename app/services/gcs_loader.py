@@ -1,6 +1,6 @@
 """GCS document loader service using LangChain.
 
-Date: 2025-10-24
+
 """
 
 from typing import List, Optional, Callable

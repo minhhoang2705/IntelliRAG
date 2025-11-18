@@ -4,7 +4,7 @@ This module provides sample data for integration testing of EmbeddingService,
 VectorDBService, and end-to-end workflows.
 
 
-Date: 2025-10-17
+
 """
 
 # Sample texts for basic embedding tests

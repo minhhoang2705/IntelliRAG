@@ -1,6 +1,6 @@
 """CSV document loader service using LangChain.
 
-Date: 2025-10-25
+
 """
 
 import logging

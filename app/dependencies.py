@@ -1,6 +1,4 @@
 """Dependency injection for FastAPI endpoints.
-
-Date: 2025-11-05
 """
 
 from fastapi import HTTPException

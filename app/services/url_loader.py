@@ -1,6 +1,6 @@
 """URL/Web document loader service using LangChain.
 
-Date: 2025-10-24
+
 """
 
 from typing import List
@@ -52,5 +52,6 @@ class URLLoaderService:
         loop = asyncio.get_event_loop()
         documents = await loop.run_in_executor(None, loader.load)
 
-        logger.info(f"Loaded {len(documents)} document(s) from {len(urls)} URLs")
+        logger.info(
+            f"Loaded {len(documents)} document(s) from {len(urls)} URLs")
         return documents

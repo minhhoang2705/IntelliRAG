@@ -4,7 +4,7 @@ This module provides the RAGPipelineService which coordinates embedding,
 retrieval, and generation to answer user queries.
 
 
-Date: 2025-10-17
+
 """
 
 from typing import List, Dict, Any
