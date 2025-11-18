@@ -22,17 +22,17 @@ IntelliRAG uses a **hybrid deployment architecture** that combines cloud infrast
 ### Cloud Infrastructure (GKE Standard)
 
 **Platform**: Google Kubernetes Engine (GKE Standard)
-**Region**: us-central1
+**Region**: asia-southeast1
 **Cluster Configuration**:
 - Cluster Type: **Standard** (NOT Autopilot)
-- Current: 1 node (e2-standard-2, 2 vCPUs, 8GB RAM)
+- Current: 1 node (e2-standard-4, 4 vCPUs, 16GB RAM)
 - Max Scale: 3 nodes (autoscaling configured)
 - Node Pools: **CPU-only** (no GPU nodes)
 - Expected Load: **150 requests/minute** (~2.5 req/sec)
 
 **Deployed Services**:
 ```
-GKE Cluster (us-central1)
+GKE Cluster (asia-southeast1)
 ├── Namespace: app
 │   ├── FastAPI API (ingestion + query endpoints)
 │   │   └── Resources: 500m CPU, 1Gi RAM per pod
@@ -290,7 +290,7 @@ class Settings(BaseSettings):
 
     # GCS configuration
     GCS_BUCKET: str = "intellirag-data"
-    GCS_PROJECT_ID: str = "intellirag-aide1"
+    GCS_PROJECT_ID: str = "intellirag-aide1-capstone"
 
     # Observability
     JAEGER_AGENT_HOST: str = "jaeger-agent.observability.svc.cluster.local"
@@ -319,7 +319,7 @@ data:
 
   # GCS configuration
   GCS_BUCKET: "intellirag-data"
-  GCS_PROJECT_ID: "intellirag-aide1"
+  GCS_PROJECT_ID: "intellirag-aide1-capstone"
 
   # Observability
   JAEGER_AGENT_HOST: "jaeger-agent.observability.svc.cluster.local"
@@ -357,7 +357,7 @@ stringData:
 name: "IntelliRAG GPU Endpoints"
 decision: allow
 includes:
-  - Service Auth: intellirag-gke-sa@intellirag-aide1.iam.gserviceaccount.com
+  - Service Auth: intellirag-gke-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
   - IP Range: <GKE NAT IP range>
 excludes: []
 ```
@@ -401,9 +401,9 @@ async def call_llm(prompt: str):
 ```bash
 # Already configured in Phase 0
 gcloud iam service-accounts add-iam-policy-binding \
-  intellirag-cluster-workload-sa@intellirag-aide1.iam.gserviceaccount.com \
+  intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:intellirag-aide1.svc.id.goog[app/intellirag-app]"
+  --member "serviceAccount:intellirag-aide1-capstone.svc.id.goog[app/intellirag-app]"
 ```
 
 **Network Policies**:
@@ -469,7 +469,7 @@ WantedBy=multi-user.target
 
 **Current Configuration** (1 node):
 ```
-Node: e2-standard-2
+Node: e2-standard-4
 ├── vCPUs: 2
 ├── Memory: 8 GB
 ├── Disk: 50 GB SSD
@@ -564,11 +564,11 @@ minikube start \
 
 ### Monthly Cost Breakdown (Detailed)
 
-**GKE Cluster** (us-central1):
+**GKE Cluster** (asia-southeast1):
 ```
 Scenario 1: Current (1 node)
 ├── Cluster management: $0 (Standard tier)
-├── Compute: 1 × e2-standard-2 = $48.91/month
+├── Compute: 1 × e2-standard-4 = $97.82/month
 │   └── 2 vCPUs, 8GB RAM, 730 hours
 ├── Storage: 50GB SSD = $8.50/month
 ├── Networking: Egress 10GB = $1.20/month
@@ -576,7 +576,7 @@ Scenario 1: Current (1 node)
 
 Scenario 2: Peak (3 nodes)
 ├── Cluster management: $0
-├── Compute: 3 × e2-standard-2 = $146.73/month
+├── Compute: 3 × e2-standard-4 = $293.46/month
 ├── Storage: 150GB SSD = $25.50/month
 ├── Networking: Egress 30GB = $3.60/month
 └── Total: ~$175.83/month
@@ -666,7 +666,7 @@ Alternative: GKE with A100 GPU
 **Status**: ✅ Completed
 **Deliverables**:
 - [x] GKE Standard cluster provisioned
-- [x] 1 node running (e2-standard-2)
+- [x] 1 node running (e2-standard-4)
 - [x] Namespaces created (app, kserve, observability)
 - [x] Service accounts with Workload Identity
 - [x] RBAC configured

@@ -425,24 +425,24 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 EOF
 
 # Build image
-docker build -t gcr.io/intellirag-aide1/intellirag-api:latest .
+docker build -t gcr.io/intellirag-aide1-capstone/intellirag-api:latest .
 
 # Test image locally (optional)
 docker run --rm -p 8000:8000 \
   -e QDRANT_HOST=localhost \
   -e GCS_BUCKET=intellirag-data \
-  gcr.io/intellirag-aide1/intellirag-api:latest
+  gcr.io/intellirag-aide1-capstone/intellirag-api:latest
 
 # Push to Google Container Registry
 gcloud auth configure-docker
-docker push gcr.io/intellirag-aide1/intellirag-api:latest
+docker push gcr.io/intellirag-aide1-capstone/intellirag-api:latest
 ```
 
 **Checklist**:
 - [ ] Dockerfile created
 - [ ] Image built successfully
 - [ ] Image pushed to GCR
-- [ ] Image URI: `gcr.io/intellirag-aide1/intellirag-api:latest`
+- [ ] Image URI: `gcr.io/intellirag-aide1-capstone/intellirag-api:latest`
 
 ---
 
@@ -564,7 +564,7 @@ data:
   QDRANT_HOST: "qdrant.app.svc.cluster.local"
   QDRANT_PORT: "6333"
   GCS_BUCKET: "intellirag-data"
-  GCS_PROJECT_ID: "intellirag-aide1"
+  GCS_PROJECT_ID: "intellirag-aide1-capstone"
   JAEGER_AGENT_HOST: "jaeger-agent.observability.svc.cluster.local"
   JAEGER_AGENT_PORT: "6831"
 EOF
@@ -599,7 +599,7 @@ spec:
       serviceAccountName: intellirag-app
       containers:
         - name: api
-          image: gcr.io/intellirag-aide1/intellirag-api:latest
+          image: gcr.io/intellirag-aide1-capstone/intellirag-api:latest
           ports:
             - containerPort: 8000
               name: http

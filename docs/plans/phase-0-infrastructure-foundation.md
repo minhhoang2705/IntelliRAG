@@ -11,7 +11,7 @@
 This phase establishes the foundational infrastructure for IntelliRAG's hybrid deployment architecture. We'll provision a GKE Standard cluster for stateless application services and set up a local Kubernetes environment (minikube) with GPU support for model inference.
 
 **Architecture Components**:
-- **GKE Standard**: Managed Kubernetes cluster for FastAPI application, databases, and orchestration (1-2 nodes, e2-standard-4)
+- **GKE Standard**: Managed Kubernetes cluster for FastAPI application, databases, and orchestration (1-3 nodes, e2-standard-4, asia-southeast1)
 - **Local Minikube**: Single-node Kubernetes with NVIDIA GPU passthrough for KServe model serving
 - **CloudFlare Tunnel**: Secure connectivity between GKE and local GPU server
 - **Terraform**: Infrastructure as Code for reproducible GKE provisioning
@@ -21,7 +21,7 @@ This phase establishes the foundational infrastructure for IntelliRAG's hybrid d
 ## 🎯 Objectives
 
 ### Primary Goals
-1. Provision production-grade GKE Standard cluster via Terraform (1-2 nodes, e2-standard-4, 50GB pd-standard)
+1. Provision production-grade GKE Standard cluster via Terraform (1-3 nodes, e2-standard-4, 50GB pd-standard, asia-southeast1)
 2. Configure local minikube with GPU support for model serving
 3. Establish secure CloudFlare Tunnel for GKE ↔ GPU connectivity
 4. Create Kubernetes namespaces and RBAC policies
@@ -123,7 +123,7 @@ terraform {
 **Create GCS bucket**:
 ```bash
 # Create bucket for Terraform state
-gsutil mb -p YOUR_PROJECT_ID -c STANDARD -l us-central1 gs://intellirag-terraform-state
+gsutil mb -p YOUR_PROJECT_ID -c STANDARD -l asia-southeast1 gs://intellirag-terraform-state
 
 # Enable versioning
 gsutil versioning set on gs://intellirag-terraform-state
@@ -313,7 +313,7 @@ variable "project_id" {
 variable "region" {
   description = "GCP region for resources"
   type        = string
-  default     = "us-central1"
+  default     = "asia-southeast1"
 }
 
 variable "cluster_name" {
@@ -349,7 +349,7 @@ variable "min_node_count" {
 variable "max_node_count" {
   description = "Maximum number of nodes in the node pool"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "node_machine_type" {
@@ -417,11 +417,11 @@ output "node_pool_name" {
 
 **File**: `terraform/terraform.tfvars`
 ```hcl
-project_id        = "YOUR_PROJECT_ID"
-region            = "us-central1"
+project_id        = "intellirag-aide1-capstone"
+region            = "asia-southeast1"
 cluster_name      = "intellirag-cluster"
 min_node_count    = 1
-max_node_count    = 2
+max_node_count    = 3
 node_machine_type = "e2-standard-4"
 node_disk_size_gb = 50
 node_disk_type    = "pd-standard"
@@ -455,8 +455,8 @@ terraform apply tfplan
 ```bash
 # Get cluster credentials
 gcloud container clusters get-credentials intellirag-cluster \
-  --region us-central1 \
-  --project YOUR_PROJECT_ID
+  --region asia-southeast1 \
+  --project intellirag-aide1-capstone
 
 # Verify access
 kubectl cluster-info
@@ -464,7 +464,7 @@ kubectl get nodes
 
 # Expected output:
 # - Cluster endpoint
-# - Standard GKE nodes in Ready state (1-2 nodes, e2-standard-4)
+# - Standard GKE nodes in Ready state (1-3 nodes, e2-standard-4)
 ```
 
 ---
@@ -702,7 +702,7 @@ metadata:
   name: intellirag-app
   namespace: app
   annotations:
-    iam.gke.io/gcp-service-account: intellirag-cluster-workload-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
 ---
 # KServe service account (Minikube)
 apiVersion: v1
@@ -803,10 +803,10 @@ kubectl apply -f kubernetes/rbac.yaml --context minikube
 
 ```bash
 # Create bucket for models
-gsutil mb -p YOUR_PROJECT_ID -c STANDARD -l us-central1 gs://intellirag-models
+gsutil mb -p YOUR_PROJECT_ID -c STANDARD -l asia-southeast1 gs://intellirag-models
 
 # Create bucket for data
-gsutil mb -p YOUR_PROJECT_ID -c STANDARD -l us-central1 gs://intellirag-data
+gsutil mb -p YOUR_PROJECT_ID -c STANDARD -l asia-southeast1 gs://intellirag-data
 
 # Set lifecycle policy (delete old versions after 30 days)
 cat > model-lifecycle.json <<EOF
@@ -826,30 +826,16 @@ gsutil uniformbucketlevelaccess set on gs://intellirag-models
 gsutil uniformbucketlevelaccess set on gs://intellirag-data
 
 # Grant access to Workload Identity service account
-gsutil iam ch serviceAccount:intellirag-cluster-workload-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com:objectAdmin gs://intellirag-models
-gsutil iam ch serviceAccount:intellirag-cluster-workload-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com:objectAdmin gs://intellirag-data
+gsutil iam ch serviceAccount:intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com:objectAdmin gs://intellirag-models
+gsutil iam ch serviceAccount:intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com:objectAdmin gs://intellirag-data
 ```
 
-### 5.2 Create StorageClass for GKE
-
-**File**: `kubernetes/storage-class.yaml`
-```yaml
----
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: fast-ssd
-provisioner: pd.csi.storage.gke.io
-parameters:
-  type: pd-ssd
-  replication-type: regional-pd
-volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: true
-```
+### 5.2 Use GKE Default StorageClass
 
 ```bash
-# Apply to GKE
-kubectl apply -f kubernetes/storage-class.yaml
+# GKE provides default StorageClass (standard-rwo)
+# No custom StorageClass needed
+kubectl get storageclass standard-rwo
 ```
 
 ### 5.3 Create PersistentVolume for Minikube
@@ -909,7 +895,7 @@ kubectl get componentstatuses
 kubectl get nodes -o wide
 
 # Verify node pool configuration
-gcloud container node-pools list --cluster intellirag-cluster --region us-central1
+gcloud container node-pools list --cluster intellirag-cluster --region asia-southeast1
 
 # Check node details (should show e2-standard-4, 50GB disk)
 kubectl describe nodes | grep -E "Name:|Instance Type:|Disk Size:"
@@ -975,7 +961,7 @@ kubectl exec -it workload-identity-test -n app -- /bin/bash
 gcloud auth list
 gsutil ls gs://intellirag-models
 
-# Expected: Service account intellirag-cluster-workload-sa@PROJECT_ID.iam.gserviceaccount.com
+# Expected: Service account intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
 # and successful bucket listing
 
 # Exit and cleanup
@@ -1051,13 +1037,13 @@ sudo systemctl start cloudflared
 ```bash
 # Verify IAM binding
 gcloud iam service-accounts get-iam-policy \
-  intellirag-cluster-workload-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
+  intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
 
 # Re-add Workload Identity binding
 gcloud iam service-accounts add-iam-policy-binding \
-  intellirag-cluster-workload-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com \
+  intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:YOUR_PROJECT_ID.svc.id.goog[app/intellirag-app]"
+  --member "serviceAccount:intellirag-aide1-capstone.svc.id.goog[app/intellirag-app]"
 
 # Verify pod annotation
 kubectl get sa intellirag-app -n app -o yaml | grep iam.gke.io
@@ -1075,11 +1061,11 @@ kubectl get nodes -o wide
 # Check node pool details
 gcloud container node-pools describe app-pool \
   --cluster intellirag-cluster \
-  --region us-central1
+  --region asia-southeast1
 
 # Verify autoscaling configuration
 gcloud container clusters describe intellirag-cluster \
-  --region us-central1 \
+  --region asia-southeast1 \
   --format="value(autoscaling)"
 
 # Check node resources

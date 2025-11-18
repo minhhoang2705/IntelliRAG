@@ -1,0 +1,45 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: embedding-service
+  namespace: kserve
+spec:
+  predictor:
+    containers:
+      - name: kserve-container
+        image: minhtranh/intellirag-embedding:latest
+        imagePullPolicy: Always
+        env:
+          - name: EMBEDDING_MODEL
+            value: "google/embeddinggemma-300m"
+          - name: DEVICE
+            value: "cpu"
+          - name: MAX_BATCH_SIZE
+            value: "32"
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: huggingface-token
+                key: token
+        resources:
+          limits:
+            cpu: "4"
+            memory: 4Gi
+          requests:
+            cpu: "2"
+            memory: 2Gi
+        ports:
+          - containerPort: 8001
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 90
+          periodSeconds: 15

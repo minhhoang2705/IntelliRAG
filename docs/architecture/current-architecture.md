@@ -127,7 +127,7 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
     - BGE-M3 Embedding InferenceService
     - Exposed via CloudFlare Tunnel: `https://gpu.intellirag.example.com`
 - **GKE Cloud**: FastAPI, Qdrant, Observability (NO GPU nodes)
-  - Standard cluster: 1-3 nodes (e2-standard-2)
+  - Standard cluster: 1-3 nodes (e2-standard-4, asia-southeast1)
   - Namespaces: app, kserve (reserved), observability
   - Cost optimization: ~$2,000/month saved vs GKE with GPU nodes
 
@@ -285,11 +285,11 @@ Git Push → GitHub Actions
 **Current Status**: GKE cluster provisioned, local GPU setup next
 
 - **GKE Standard (Cloud)**: ✅ PROVISIONED
-  - Cluster: intellirag-cluster (1-3 nodes, e2-standard-2, us-central1)
+  - Cluster: intellirag-cluster (1-3 nodes, e2-standard-4, asia-southeast1)
   - Namespaces: app, kserve (reserved), observability
   - Service accounts with Workload Identity
   - GCS buckets for data and models
-  - Terraform state in GCS backend
+  - Terraform state in GCS backend (gs://intellirag-aide1-capstone-terraform-state)
 - **Minikube (Local GPU Server)**: ⚠️ NEXT PHASE
   - GPU: NVIDIA RTX 4070Ti 12GB
   - KServe v0.14.1 for model serving

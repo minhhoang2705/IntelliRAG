@@ -4,6 +4,7 @@
 **Created**: 2025-11-14
 **Project**: intellirag-aide1-capstone
 **Region**: asia-southeast1
+**Machine Type**: e2-standard-4
 
 ---
 
@@ -66,10 +67,10 @@ cd terraform/
 ```
 
 **What this does**:
-1. Creates GCP project: `intellirag-aide1`
+1. Creates GCP project: `intellirag-aide1-capstone`
 2. Links billing account: `013552-2652EA-0DC167`
 3. Enables required APIs (container, compute, storage, IAM)
-4. Creates GCS bucket: `gs://intellirag-aide1-terraform-state`
+4. Creates GCS bucket: `gs://intellirag-aide1-capstone-terraform-state`
 5. Configures bucket versioning and lifecycle policies
 
 **Expected output**:
@@ -81,20 +82,20 @@ cd terraform/
 Project Details:
   Project ID: intellirag-aide1-capstone
   Region: asia-southeast1
-  State Bucket: gs://intellirag-aide1-terraform-state
+  State Bucket: gs://intellirag-aide1-capstone-terraform-state
 ```
 
 **Verification**:
 ```bash
 # Verify project is set
 gcloud config get-value project
-# Should output: intellirag-aide1
+# Should output: intellirag-aide1-capstone
 
 # Verify APIs are enabled
 gcloud services list --enabled | grep -E "(container|compute|storage)"
 
 # Verify state bucket exists
-gsutil ls gs://intellirag-aide1-terraform-state
+gsutil ls gs://intellirag-aide1-capstone-terraform-state
 ```
 
 ---
@@ -116,7 +117,7 @@ gsutil ls gs://intellirag-aide1-terraform-state
 5. Provisions:
    - VPC network: `intellirag-cluster-vpc`
    - Subnet with secondary ranges for pods/services
-   - GKE Standard cluster: `intellirag-cluster` (1-3 nodes, e2-standard-2)
+   - GKE Standard cluster: `intellirag-cluster` (1-3 nodes, e2-standard-4)
    - Service account: `intellirag-cluster-workload-sa`
    - IAM bindings for Workload Identity
 6. Configures kubectl access automatically
@@ -180,8 +181,8 @@ kubectl apply -f service-accounts.yaml
 # Apply RBAC
 kubectl apply -f rbac.yaml
 
-# Apply storage class
-kubectl apply -f storage-class.yaml
+# Note: Using GKE default StorageClass (standard-rwo)
+# No custom StorageClass needed
 ```
 
 **Expected output for each**:
@@ -199,7 +200,7 @@ rolebinding.rbac.authorization.k8s.io/app-role-binding created
 clusterrole.rbac.authorization.k8s.io/kserve-role created
 clusterrolebinding.rbac.authorization.k8s.io/kserve-role-binding created
 
-storageclass.storage.k8s.io/fast-ssd created
+# Using GKE default StorageClass
 ```
 
 **Verification**:
@@ -214,8 +215,8 @@ kubectl get sa -A | grep -E "(intellirag|kserve|observability)"
 kubectl get roles,rolebindings -n app
 kubectl get clusterroles,clusterrolebindings | grep kserve
 
-# Verify storage class
-kubectl get storageclass fast-ssd
+# Verify default storage class
+kubectl get storageclass standard-rwo
 ```
 
 ---
@@ -326,12 +327,12 @@ After successful completion, you will have:
 ### GCP Resources
 | Resource | Name | Purpose |
 |----------|------|---------|
-| Project | intellirag-aide1 | GCP project |
+| Project | intellirag-aide1-capstone | GCP project |
 | VPC | intellirag-cluster-vpc | Network isolation |
 | Subnet | intellirag-cluster-subnet | GKE nodes (10.0.0.0/20) |
-| GKE Cluster | intellirag-cluster | Standard cluster (1-3 nodes, e2-standard-2) |
+| GKE Cluster | intellirag-cluster | Standard cluster (1-3 nodes, e2-standard-4) |
 | Service Account | intellirag-cluster-workload-sa | Workload Identity |
-| GCS Bucket | intellirag-aide1-terraform-state | Terraform state |
+| GCS Bucket | intellirag-aide1-capstone-terraform-state | Terraform state |
 | GCS Bucket | intellirag-models | Model artifacts |
 | GCS Bucket | intellirag-data | Data storage |
 
@@ -346,7 +347,6 @@ After successful completion, you will have:
 | ServiceAccount | observability-sa | observability |
 | Role | app-role | app |
 | ClusterRole | kserve-role | - |
-| StorageClass | fast-ssd | - |
 
 ### Network Configuration
 | Type | CIDR | Capacity |
@@ -367,7 +367,7 @@ After successful completion, you will have:
 ```bash
 gcloud services enable container.googleapis.com \
   compute.googleapis.com \
-  --project=intellirag-aide1
+  --project=intellirag-aide1-capstone
 ```
 
 ---
@@ -383,14 +383,14 @@ cd terraform/
 ./setup-gcp.sh
 
 # Verify bucket exists
-gsutil ls gs://intellirag-aide1-terraform-state
+gsutil ls gs://intellirag-aide1-capstone-terraform-state
 ```
 
 ---
 
 ### Issue: Quota exceeded
 
-**Error**: `Quota 'CPUS' exceeded. Limit: X in region us-central1`
+**Error**: `Quota 'CPUS' exceeded. Limit: X in region asia-southeast1`
 
 **Solution**:
 1. Go to GCP Console → IAM & Admin → Quotas
@@ -411,13 +411,13 @@ gsutil ls gs://intellirag-aide1-terraform-state
 ```bash
 # Verify IAM binding
 gcloud iam service-accounts get-iam-policy \
-  intellirag-cluster-workload-sa@intellirag-aide1.iam.gserviceaccount.com
+  intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
 
 # Re-add binding if missing
 gcloud iam service-accounts add-iam-policy-binding \
-  intellirag-cluster-workload-sa@intellirag-aide1.iam.gserviceaccount.com \
+  intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:intellirag-aide1.svc.id.goog[app/intellirag-app]"
+  --member "serviceAccount:intellirag-aide1-capstone.svc.id.goog[app/intellirag-app]"
 
 # Verify service account annotation
 kubectl get sa intellirag-app -n app -o yaml | grep iam.gke.io
@@ -433,8 +433,8 @@ kubectl get sa intellirag-app -n app -o yaml | grep iam.gke.io
 ```bash
 # Re-fetch cluster credentials
 gcloud container clusters get-credentials intellirag-cluster \
-  --region us-central1 \
-  --project intellirag-aide1
+  --region asia-southeast1 \
+  --project intellirag-aide1-capstone
 
 # Verify kubeconfig
 kubectl config current-context
@@ -444,18 +444,18 @@ kubectl config current-context
 
 ## 💰 Cost Tracking
 
-### Monthly Estimates (us-central1)
+### Monthly Estimates (asia-southeast1)
 
 **GKE Standard**:
 - Cluster management: Free (Standard tier)
 - Compute resources:
-  - Scenario 1 (Current - 1 node, e2-standard-2):
-    - 1 × e2-standard-2 = $48.91/month
+  - Scenario 1 (Current - 1 node, e2-standard-4):
+    - 1 × e2-standard-4 = $97.82/month
     - Storage (50GB SSD): $8.50/month
-  - Scenario 2 (Peak - 3 nodes, e2-standard-2):
-    - 3 × e2-standard-2 = $146.73/month
+  - Scenario 2 (Peak - 3 nodes, e2-standard-4):
+    - 3 × e2-standard-4 = $293.46/month
     - Storage (150GB SSD): $25.50/month
-- **Subtotal**: ~$57-172/month (1-3 nodes)
+- **Subtotal**: ~$106-319/month (1-3 nodes)
 
 **GCS Storage**:
 - Data bucket (50GB): ~$1.30/month
@@ -467,7 +467,7 @@ kubectl config current-context
 - Egress (10-30GB): ~$1-4/month
 - **Subtotal**: ~$2/month
 
-**Total GKE Monthly Cost**: ~$58-176/month (depending on node count)
+**Total GKE Monthly Cost**: ~$109-322/month (depending on node count)
 
 **Expected Load**: 150 requests/minute (~2.5 req/sec)
 **Recommended**: Start with 1 node, scale to 2-3 nodes as needed
@@ -485,14 +485,14 @@ kubectl config current-context
 
 Before moving to Phase 1, verify:
 
-- [ ] GCP project `intellirag-aide1` created and billing enabled
+- [ ] GCP project `intellirag-aide1-capstone` created and billing enabled
 - [ ] All required APIs enabled
-- [ ] GKE Autopilot cluster `intellirag-cluster` running
+- [ ] GKE Standard cluster `intellirag-cluster` running
 - [ ] kubectl configured and can access cluster
 - [ ] All 3 namespaces created (app, kserve, observability)
 - [ ] Service accounts created with Workload Identity annotations
 - [ ] RBAC roles and bindings applied
-- [ ] StorageClass `fast-ssd` available
+- [ ] Default StorageClass `standard-rwo` available
 - [ ] GCS buckets created (terraform-state, models, data)
 - [ ] Workload Identity SA has access to GCS buckets
 - [ ] All verification tests pass (20/20)
@@ -557,7 +557,7 @@ gsutil ls | grep intellirag
 # Workload Identity
 kubectl describe sa intellirag-app -n app
 gcloud iam service-accounts get-iam-policy \
-  intellirag-cluster-workload-sa@intellirag-aide1.iam.gserviceaccount.com
+  intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
 ```
 
 ---

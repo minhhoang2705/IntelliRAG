@@ -49,7 +49,7 @@ This is the master implementation plan for deploying IntelliRAG to production. T
 **Objective**: Provision GKE cluster and establish local Kubernetes environment
 
 **Key Deliverables**:
-- Terraform modules for GKE Standard cluster (min 1 node, max 3 nodes, machine type: e2-standard-2, disk size: 50GB)
+- Terraform modules for GKE Standard cluster (min 1 node, max 3 nodes, machine type: e2-standard-4, disk size: 50GB, region: asia-southeast1)
 - Minikube setup with GPU support on local server (v1.32.0+)
 - KServe v0.14.1 installation on minikube
 - CloudFlare Tunnel for secure connectivity (cloudflared)
@@ -384,7 +384,7 @@ terraform apply tfplan
 
 # Get cluster credentials
 gcloud container clusters get-credentials intellirag-cluster \
-  --region us-central1 --project YOUR_PROJECT_ID
+  --region asia-southeast1 --project intellirag-aide1-capstone
 ```
 
 ### 3. Deploy Observability Stack
@@ -404,8 +404,8 @@ helmfile apply
 
 ```bash
 # Build and push Docker image
-docker build -t gcr.io/YOUR_PROJECT/intellirag-api:latest .
-docker push gcr.io/YOUR_PROJECT/intellirag-api:latest
+docker build -t gcr.io/intellirag-aide1-capstone/intellirag-api:latest .
+docker push gcr.io/intellirag-aide1-capstone/intellirag-api:latest
 
 # Deploy with Helm
 helm install intellirag ./helm/intellirag-app \
@@ -515,9 +515,9 @@ This implementation plan provides a comprehensive roadmap for deploying IntelliR
 
 **Key Achievements**:
 - **Cost Efficiency**: Hybrid architecture saves ~$2,000/month vs full GKE GPU deployment
-  - GKE Standard (1-3 nodes, e2-standard-2): ~$58-176/month
+  - GKE Standard (1-3 nodes, e2-standard-4, asia-southeast1): ~$109-322/month
   - Local GPU electricity: ~$25/month
-  - Total: ~$85-200/month vs $2,000+/month with GKE GPU nodes
+  - Total: ~$134-347/month vs $2,000+/month with GKE GPU nodes
 - **Performance**: vLLM achieves 19x throughput improvement vs Ollama
   - P95 latency <200ms (including CloudFlare Tunnel overhead)
   - Expected load: 150 requests/minute
