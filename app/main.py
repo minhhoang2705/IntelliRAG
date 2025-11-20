@@ -5,10 +5,16 @@ This module provides the main FastAPI application with RAG endpoints.
 2025-10-17
 """
 
+from email.policy import HTTP
+from inspect import CO_ASYNC_GENERATOR
 from app.api.middleware.metrics_middleware import MetricsMiddleware
 from contextlib import asynccontextmanager
 import os
-from fastapi import FastAPI, Response
+import httpx
+import time
+from prometheus_client import Counter
+from fastapi import FastAPI, HTTPException, Response, status
+from app.services import embedding
 from app.services.orchestrator import OrchestratorService
 from prometheus_client import generate_latest
 from app.core.logging import setup_logging, get_logger
@@ -25,6 +31,16 @@ logger = get_logger(__name__)
 # Initialize orchestrator (singleton)
 orchestrator = None
 
+readiness_check_counter = Counter(
+    'readiness_check_total',
+    'Total number of readiness checks'
+)
+
+readiness_check_failures = Counter(
+    'readiness_check_failures_total',
+    'Total number of readiness check failures',
+    ['component']
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -84,10 +100,119 @@ app.include_router(query_router)
 app.include_router(ingest_router)
 
 
-@app.get("/health")
+@app.get("/")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "IntelliRAG"}
+
+@app.get("/ready", status_code = status.HTTP_200_OK, tags=["Health"])
+async def readiness_check():
+    """Readiness probe endpoint with dependency check"""
+    readiness_check_counter.inc()
+    
+    health_status = {
+        "status": "ready",
+        "timestamp": time.time(),
+        "service": "intellirag-api",
+        "check": {}
+    }
+    
+    all_healthy = True
+    
+    # Check if orchestrator is initialized
+    if orchestrator is None:
+        health_status["status"] = "not ready"
+        health_status["check"]["orchestrator"] = {
+            "status": "unhealthy",
+            "error": "Service is still initializing"
+        }
+        readiness_check_failures.labels(component="orchestrator").inc()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=health_status
+        )
+    
+    # Check Qdrant connectivity
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            qdrant_url = f"{orchestrator.vectordb_service.url}/"
+            response = await client.get(qdrant_url)
+            health_status["check"]["qdrant"] = {
+                "status": "healthy" if response.status_code == 200 else "unhealthy",
+                "response_time": response.elapsed.total_seconds() * 1000 # in milliseconds
+            }
+            if response.status_code != 200:
+                all_healthy = False
+                readiness_check_failures.labels(component="qdrant").inc()
+    except Exception as e:
+        health_status["check"]["qdrant"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+        all_healthy = False
+        readiness_check_failures.labels(component="qdrant").inc()
+        
+    # check LLM endpoint
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            llm_url = f"{orchestrator.llm_client.base_url}/models"
+            response = await client.get(llm_url)
+            health_status["check"]["llm"] = {
+                "status": "healthy" if response.status_code == 200 else "unhealthy",
+                "response_time": response.elapsed.total_seconds() * 1000 # in milliseconds
+            }
+            if response.status_code != 200:
+                all_healthy = False
+                readiness_check_failures.labels(component="llm").inc()
+    except Exception as e:
+        health_status["check"]["llm"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+        all_healthy = False
+        readiness_check_failures.labels(component="llm").inc()
+
+    # check embedding endpoint
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            embedding_url = f"{orchestrator.embedding_service.remote_url}/health"
+            response = await client.get(embedding_url)
+            health_status["check"]["embedding"] = {
+                "status": "healthy" if response.status_code == 200 else "unhealthy",
+                "response_time": response.elapsed.total_seconds() * 1000 # in milliseconds
+            }
+            if response.status_code != 200:
+                all_healthy = False
+                readiness_check_failures.labels(component="embedding").inc()
+    except Exception as e:
+        health_status["check"]["embedding"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+        all_healthy = False
+        readiness_check_failures.labels(component="embedding").inc()
+    
+    # check GCS access
+    try:
+        if orchestrator.gcs_loader.bucket is not None:
+            health_status["check"]["gcs"] = {"status": "healthy"}
+        else:
+            health_status["check"]["gcs"] = {"status": "unhealthy", "error": "GCS bucket not configured"}
+            all_healthy = False
+            readiness_check_failures.labels(component="gcs").inc()
+    except Exception as e:
+        health_status["check"]["gcs"] = {"status": "unhealthy", "error": str(e)}
+        all_healthy = False
+        readiness_check_failures.labels(component="gcs").inc()
+    
+    if not all_healthy:
+        health_status["status"] = "not ready"
+        raise HTTPException(
+            status_code = status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail= health_status
+        )
+    
+    return health_status
 
 
 @app.get("/metrics")

@@ -1,0 +1,69 @@
+# Jaeger for GKE
+# Using jaeger chart from jaegertracing
+# In-memory storage for simplicity
+
+# Disable external storage provisioning
+provisionDataStore:
+  cassandra: false
+  elasticsearch: false
+  kafka: false
+
+# Use in-memory storage
+storage:
+  type: memory
+  memory:
+    max_traces: 100000
+
+# Jaeger Agent (receives traces from applications)
+agent:
+  enabled: true
+  daemonset:
+    enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# Jaeger Collector (receives traces from agents)
+collector:
+  enabled: true
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    zipkin:
+      port: 9411
+    grpc:
+      port: 14250
+    http:
+      port: 14268
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# Jaeger Query (UI for viewing traces)
+query:
+  enabled: true
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 16686
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 100m
+      memory: 192Mi
+  ingress:
+    enabled: false  # Will be enabled when NGINX Ingress is deployed
+
+# Disable all-in-one mode since we're using separate components
+allInOne:
+  enabled: false

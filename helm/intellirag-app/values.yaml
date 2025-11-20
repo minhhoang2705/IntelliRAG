@@ -1,0 +1,150 @@
+# Default values for intellirag-app
+# This file contains default configuration values for development/staging
+
+replicaCount: 2
+
+image:
+  repository: gcr.io/intellirag-aide1-capstone/intellirag-api
+  pullPolicy: Always
+  tag: "v1.0.6"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations:
+    iam.gke.io/gcp-service-account: intellirag-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
+  name: "intellirag-app"
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: api.intellirag.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Application Configuration
+config:
+  # Application Settings
+  appName: "IntelliRAG"
+  appVersion: "0.1.0"
+  debug: "false"
+  environment: "development"
+
+  # Google Cloud Storage (GCS) Configuration
+  gcsProjectId: "intellirag-aide1-capstone"
+  gcsBucketName: "intellirag-aide1-capstone-data"
+  gcsUseDefaultCredentials: "true"
+  gcsUploadTimeout: "300"
+  gcsDownloadTimeout: "300"
+  gcsMaxRetries: "3"
+
+  # Qdrant Configuration
+  # Using Kubernetes service DNS for in-cluster communication
+  qdrantUrl: "http://qdrant.database.svc.cluster.local:6333"
+  qdrantCollectionName: "intellirag_collection"
+
+  # vLLM Configuration (Hybrid Architecture - Local GPU Server)
+  # LLM served from local GPU server via CloudFlare Tunnel
+  vllmBaseUrl: "https://llm.blockchainradar.xyz/v1"
+  vllmModel: "Qwen/Qwen3-0.6B"
+
+  # Embedding Service Configuration (Hybrid Architecture - Local GPU Server)
+  # Embeddings served from local GPU server via CloudFlare Tunnel
+  embeddingServiceUrl: "https://embed.blockchainradar.xyz"
+  embeddingUseRemote: "true"
+
+  # Embedding Model Configuration (for reference only - not hardcoded)
+  # The actual model is configured on the remote embedding service
+  # This field is for documentation and fallback behavior
+  embeddingDimension: "1024"
+  embeddingDevice: "cpu"
+  embeddingBatchSize: "32"
+
+  # Document Processing Configuration
+  maxFileSizeMb: "50"
+  allowedFileTypes: "pdf,docx,txt,csv,md"
+  chunkSize: "512"
+  chunkOverlap: "50"
+
+  # RAG Configuration
+  ragTopK: "5"
+  ragTemperature: "0.7"
+  ragMaxTokens: "512"
+
+  # Observability Configuration
+  jaegerHost: "jaeger-collector.observability.svc.cluster.local"
+  jaegerPort: "6831"
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Secrets (Optional - for sensitive data like API keys)
+secrets: {}
+  # qdrantApiKey: ""
+  # gcpServiceAccountKey: ""

@@ -1,0 +1,216 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "intellirag-app.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "intellirag-app.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "intellirag-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "intellirag-app.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "intellirag-app.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        env:
+        # Application Configuration
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: APP_NAME
+        - name: APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: APP_VERSION
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: DEBUG
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: ENVIRONMENT
+
+        # GCS Configuration
+        - name: GCS_PROJECT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: GCS_PROJECT_ID
+        - name: GCS_BUCKET_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: GCS_BUCKET_NAME
+        - name: GCS_USE_DEFAULT_CREDENTIALS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: GCS_USE_DEFAULT_CREDENTIALS
+        - name: GCS_UPLOAD_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: GCS_UPLOAD_TIMEOUT
+        - name: GCS_DOWNLOAD_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: GCS_DOWNLOAD_TIMEOUT
+        - name: GCS_MAX_RETRIES
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: GCS_MAX_RETRIES
+
+        # Qdrant Configuration
+        - name: QDRANT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: QDRANT_URL
+        - name: QDRANT_COLLECTION_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: QDRANT_COLLECTION_NAME
+
+        # vLLM Configuration (Hybrid - Local GPU Server)
+        - name: VLLM_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: VLLM_BASE_URL
+        - name: VLLM_MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: VLLM_MODEL
+
+        # Embedding Service Configuration (Hybrid - Local GPU Server)
+        - name: EMBEDDING_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: EMBEDDING_SERVICE_URL
+        - name: EMBEDDING_USE_REMOTE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: EMBEDDING_USE_REMOTE
+        - name: EMBEDDING_DIMENSION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: EMBEDDING_DIMENSION
+        - name: EMBEDDING_DEVICE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: EMBEDDING_DEVICE
+        - name: EMBEDDING_BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: EMBEDDING_BATCH_SIZE
+
+        # Document Processing Configuration
+        - name: MAX_FILE_SIZE_MB
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: MAX_FILE_SIZE_MB
+        - name: ALLOWED_FILE_TYPES
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: ALLOWED_FILE_TYPES
+        - name: CHUNK_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: CHUNK_SIZE
+        - name: CHUNK_OVERLAP
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: CHUNK_OVERLAP
+
+        # RAG Configuration
+        - name: RAG_TOP_K
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: RAG_TOP_K
+        - name: RAG_TEMPERATURE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: RAG_TEMPERATURE
+        - name: RAG_MAX_TOKENS
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: RAG_MAX_TOKENS
+
+        # Observability Configuration
+        - name: JAEGER_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: JAEGER_HOST
+        - name: JAEGER_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "intellirag-app.fullname" . }}-config
+              key: JAEGER_PORT
+
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 12 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 12 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
