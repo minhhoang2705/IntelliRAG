@@ -1877,7 +1877,7 @@ ingress:
         - intellirag.example.com
 
 llm:
-  model: "Qwen/Qwen2.5-7B-Instruct"
+  model: "Qwen/Qwen3-0.6B-Instruct"
 ```
 
 **Qdrant StatefulSet (`qdrant/templates/statefulset.yaml`):**
@@ -2114,14 +2114,14 @@ model_name = "qwen2-5-7b-instruct"
 
 # Log model metadata
 with mlflow.start_run(run_name="vllm-qwen2.5-production") as run:
-    mlflow.log_param("model_id", "Qwen/Qwen2.5-7B-Instruct")
+    mlflow.log_param("model_id", "Qwen/Qwen3-0.6B-Instruct")
     mlflow.log_param("framework", "vllm")
     mlflow.log_param("gpu", "nvidia-t4")
     mlflow.log_param("max_tokens", 8192)
     mlflow.log_param("quantization", "none")
     
     # Log model artifact (Hugging Face model ID)
-    mlflow.log_text("Qwen/Qwen2.5-7B-Instruct", "model_id.txt")
+    mlflow.log_text("Qwen/Qwen3-0.6B-Instruct", "model_id.txt")
     
     # Register model
     model_uri = f"runs:/{run.info.run_id}/model"
@@ -2140,7 +2140,7 @@ client.transition_model_version_stage(
 - [ ] Create GCS bucket for MLFlow artifacts
 - [ ] Deploy MLFlow server to GKE
 - [ ] Expose MLFlow UI via ingress
-- [ ] Register Qwen2.5-7B model
+- [ ] Register Qwen3-0.6B model
 - [ ] Register BGE-M3 embedding model
 - [ ] Set up model versioning workflow
 - [ ] Integrate MLFlow with CI/CD
@@ -2290,7 +2290,7 @@ spec:
           nvidia.com/gpu: "1"
       env:
         - name: VLLM_MODEL_NAME
-          value: "Qwen/Qwen2.5-7B-Instruct"
+          value: "Qwen/Qwen3-0.6B-Instruct"
         - name: VLLM_GPU_MEMORY_UTILIZATION
           value: "0.95"
         - name: VLLM_MAX_MODEL_LEN
@@ -2334,7 +2334,7 @@ kubectl get inferenceservice -n intellirag
 # Test inference
 curl -X POST http://vllm-qwen-predictor.intellirag.svc.cluster.local/v1/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "Qwen/Qwen2.5-7B-Instruct", "prompt": "Hello", "max_tokens": 50}'
+  -d '{"model": "Qwen/Qwen3-0.6B-Instruct", "prompt": "Hello", "max_tokens": 50}'
 ```
 
 **Deliverables:**
@@ -10447,12 +10447,12 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 
 # Wait 30-60 seconds for vLLM to load model, then verify:
 curl http://localhost:8000/v1/models
-# Expected: {"object":"list","data":[{"id":"Qwen/Qwen2.5-7B-Instruct",...}]}
+# Expected: {"object":"list","data":[{"id":"Qwen/Qwen3-0.6B-Instruct",...}]}
 ```
 
 ### Step 2: Run Integration Tests
@@ -10560,12 +10560,12 @@ docker run -d --name qdrant-test -p 6333:6333 qdrant/qdrant:latest
 
 ### GPU Out of Memory
 
-**Cause:** Insufficient VRAM for Qwen2.5-7B  
+**Cause:** Insufficient VRAM for Qwen3-0.6B  
 **Fix:**
 ```bash
 # Option 1: Lower GPU utilization
 docker run -d --gpus all -p 8000:8000 \
-  vllm/vllm-openai --model Qwen/Qwen2.5-7B-Instruct \
+  vllm/vllm-openai --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.7
 
 # Option 2: Use smaller model (3B)
@@ -10599,7 +10599,7 @@ uv run pytest tests/integration/ -v -m integration
 
 ✅ **All 14 tests should PASS when:**
 - Qdrant running on localhost:6333
-- vLLM running on localhost:8000 with Qwen2.5-7B-Instruct
+- vLLM running on localhost:8000 with Qwen3-0.6B-Instruct
 - NVIDIA GPU available with sufficient VRAM (>8GB)
 
 ✅ **Partial Success (2 tests) when:**
@@ -10764,7 +10764,7 @@ Git Push → GitHub Actions
 MLFlow (Parallel)          DVC (Parallel)
     ↓                          ↓
 Model Registry          Data Versioning
-    ├─ Qwen2.5-7B           ├─ Raw documents
+    ├─ Qwen3-0.6B           ├─ Raw documents
     ├─ MiniCPM-V-2          ├─ Processed chunks
     └─ Embeddings           └─ Evaluation datasets
 ```
@@ -11104,7 +11104,7 @@ MLFlow Tracking Server
         │   └─ Artifacts
         ↓
 MLFlow Model Registry
-        ├─ Model Name: qwen2.5-7b-instruct
+        ├─ Model Name: Qwen3-0.6B-instruct
         │   ├─ Version 1 (Staging)
         │   ├─ Version 2 (Production)
         │   └─ Version 3 (Archived)
@@ -11312,11 +11312,11 @@ class MLFlowService:
 mlflow_service = MLFlowService(tracking_uri="http://mlflow:5000")
 
 metadata = ModelMetadata(
-    name="qwen2.5-7b-instruct",
+    name="Qwen3-0.6B-instruct",
     version="v1.0.0",
     framework="transformers",
     task="text-generation",
-    base_model="Qwen/Qwen2.5-7B-Instruct",
+    base_model="Qwen/Qwen3-0.6B-Instruct",
     parameters={
         "max_tokens": 8192,
         "temperature": 0.7,
@@ -11330,14 +11330,14 @@ metadata = ModelMetadata(
 )
 
 version = mlflow_service.log_model(
-    model_path="./models/qwen2.5-7b-instruct",
-    model_name="qwen2.5-7b-instruct",
+    model_path="./models/Qwen3-0.6B-instruct",
+    model_name="Qwen3-0.6B-instruct",
     metadata=metadata,
 )
 
 # Promote to production
 mlflow_service.promote_model(
-    model_name="qwen2.5-7b-instruct",
+    model_name="Qwen3-0.6B-instruct",
     version=version,
     stage="Production",
 )
@@ -11581,7 +11581,7 @@ releases:
       - kserve/values.yaml
     set:
       - name: vllm.modelUri
-        value: gs://{{ env "GCS_BUCKET" }}/models/qwen2.5-7b-instruct
+        value: gs://{{ env "GCS_BUCKET" }}/models/Qwen3-0.6B-instruct
 
   # NGINX Ingress Controller
   - name: nginx-ingress
@@ -11708,7 +11708,7 @@ spec:
     model:
       modelFormat:
         name: vllm
-      storageUri: mlflow://qwen2.5-7b-instruct/Production  # MLFlow model registry
+      storageUri: mlflow://Qwen3-0.6B-instruct/Production  # MLFlow model registry
       resources:
         limits:
           cpu: "8"
@@ -11773,7 +11773,7 @@ def export_mlflow_metrics():
     """Export MLFlow metrics to Prometheus."""
     client = mlflow.tracking.MlflowClient()
 
-    for model_name in ["qwen2.5-7b-instruct", "embedding-model"]:
+    for model_name in ["Qwen3-0.6B-instruct", "embedding-model"]:
         versions = client.get_latest_versions(name=model_name, stages=["Production"])
 
         if versions:
@@ -12087,11 +12087,11 @@ vim tests/unit/test_<missing_module>.py
 **Issue**: MLFlow model not found
 ```bash
 # Solution: Check model registry
-mlflow models list --model-name qwen2.5-7b-instruct
+mlflow models list --model-name Qwen3-0.6B-instruct
 
 # Promote model to production
 mlflow models update \
-  --name qwen2.5-7b-instruct \
+  --name Qwen3-0.6B\
   --version 1 \
   --stage Production
 ```
@@ -24032,11 +24032,11 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 ```
 - **Required for:** All LLM and RAG tests
-- **Model:** Qwen/Qwen2.5-7B-Instruct (7B parameters)
+- **Model:** Qwen/Qwen3-0.6B(7B parameters)
 - **URL:** http://localhost:8000/v1 (OpenAI-compatible)
 - **GPU:** Requires NVIDIA GPU (tested on RTX 4070Ti 12GB)
 
@@ -24217,7 +24217,7 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 
 # Wait for vLLM to load model (~30-60 seconds)
@@ -24305,7 +24305,7 @@ Expected output with vLLM running:
 **Workaround:** Start vLLM before running tests, check health endpoint
 
 ### 3. GPU Memory Requirements
-**Issue:** Qwen2.5-7B requires ~8GB VRAM  
+**Issue:** Qwen3-0.6B requires ~8GB VRAM  
 **Impact:** Cannot run on systems without adequate GPU  
 **Alternative:** Use smaller model (e.g., Qwen2.5-3B) for testing
 
@@ -25689,7 +25689,7 @@ User → FastAPI → Orchestrator → RAG Pipeline → {Embedding, VectorDB, LLM
 ```python
 client = LLMClientService(
     base_url="http://localhost:8000/v1",
-    model="Qwen/Qwen2.5-7B-Instruct"
+    model="Qwen/Qwen3-0.6B-Instruct"
 )
 
 answer = await client.generate(
@@ -25871,7 +25871,7 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct
+  --model Qwen/Qwen3-0.6B-Instruct
 ```
 
 ### Start FastAPI Server
@@ -25973,7 +25973,7 @@ Result: Test PASSES ✅
 | **End-to-End RAG Query** | **~300-400ms** | **~5-10 QPS** |
 
 **Note:** Performance depends on:
-- Model size (Qwen2.5-7B vs larger)
+- Model size (Qwen3-0.6B vs larger)
 - GPU availability (RTX 4070Ti 12GB)
 - Batch size and concurrent requests
 - Collection size in Qdrant
@@ -35523,7 +35523,7 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
   - GPU Utilization: 95%+
 
 #### Models
-- **Primary**: Qwen2.5-7B-Instruct (text generation)
+- **Primary**: Qwen3-0.6B(text generation)
 - **Multimodal**: MiniCPM-V-2 (vision tasks)
 
 #### Deployment
@@ -36156,12 +36156,12 @@ class RAGPipeline:
 
         # Track token usage
         llm_token_count.labels(
-            model='qwen2.5-7b-instruct',
+            model='Qwen3-0.6B-instruct',
             type='input'
         ).inc(response['usage']['prompt_tokens'])
 
         llm_token_count.labels(
-            model='qwen2.5-7b-instruct',
+            model='Qwen3-0.6B-instruct',
             type='output'
         ).inc(response['usage']['completion_tokens'])
 
@@ -40995,11 +40995,11 @@ async def test_llm_client_initialization():
     client = LLMClientService(
         base_url="http://localhost:8000/v1",
         api_key="dummy-key",
-        model="Qwen/Qwen2.5-7B-Instruct"
+        model="Qwen/Qwen3-0.6B-Instruct"
     )
 
     assert client.base_url == "http://localhost:8000/v1"
-    assert client.model == "Qwen/Qwen2.5-7B-Instruct"
+    assert client.model == "Qwen/Qwen3-0.6B-Instruct"
     assert client.client is not None
 
 
@@ -47773,12 +47773,12 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 
 # Wait 30-60 seconds for vLLM to load model, then verify:
 curl http://localhost:8000/v1/models
-# Expected: {"object":"list","data":[{"id":"Qwen/Qwen2.5-7B-Instruct",...}]}
+# Expected: {"object":"list","data":[{"id":"Qwen/Qwen3-0.6B-Instruct",...}]}
 ```
 
 ### Step 2: Run Integration Tests
@@ -47886,12 +47886,12 @@ docker run -d --name qdrant-test -p 6333:6333 qdrant/qdrant:latest
 
 ### GPU Out of Memory
 
-**Cause:** Insufficient VRAM for Qwen2.5-7B  
+**Cause:** Insufficient VRAM for Qwen3-0.6B  
 **Fix:**
 ```bash
 # Option 1: Lower GPU utilization
 docker run -d --gpus all -p 8000:8000 \
-  vllm/vllm-openai --model Qwen/Qwen2.5-7B-Instruct \
+  vllm/vllm-openai --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.7
 
 # Option 2: Use smaller model (3B)
@@ -47925,7 +47925,7 @@ uv run pytest tests/integration/ -v -m integration
 
 ✅ **All 14 tests should PASS when:**
 - Qdrant running on localhost:6333
-- vLLM running on localhost:8000 with Qwen2.5-7B-Instruct
+- vLLM running on localhost:8000 with Qwen3-0.6B-Instruct
 - NVIDIA GPU available with sufficient VRAM (>8GB)
 
 ✅ **Partial Success (2 tests) when:**
@@ -48090,7 +48090,7 @@ Git Push → GitHub Actions
 MLFlow (Parallel)          DVC (Parallel)
     ↓                          ↓
 Model Registry          Data Versioning
-    ├─ Qwen2.5-7B           ├─ Raw documents
+    ├─ Qwen3-0.6B           ├─ Raw documents
     ├─ MiniCPM-V-2          ├─ Processed chunks
     └─ Embeddings           └─ Evaluation datasets
 ```
@@ -48430,7 +48430,7 @@ MLFlow Tracking Server
         │   └─ Artifacts
         ↓
 MLFlow Model Registry
-        ├─ Model Name: qwen2.5-7b-instruct
+        ├─ Model Name: Qwen3-0.6B-instruct
         │   ├─ Version 1 (Staging)
         │   ├─ Version 2 (Production)
         │   └─ Version 3 (Archived)
@@ -48638,11 +48638,11 @@ class MLFlowService:
 mlflow_service = MLFlowService(tracking_uri="http://mlflow:5000")
 
 metadata = ModelMetadata(
-    name="qwen2.5-7b-instruct",
+    name="Qwen3-0.6B-instruct",
     version="v1.0.0",
     framework="transformers",
     task="text-generation",
-    base_model="Qwen/Qwen2.5-7B-Instruct",
+    base_model="Qwen/Qwen3-0.6B-Instruct",
     parameters={
         "max_tokens": 8192,
         "temperature": 0.7,
@@ -48656,14 +48656,14 @@ metadata = ModelMetadata(
 )
 
 version = mlflow_service.log_model(
-    model_path="./models/qwen2.5-7b-instruct",
-    model_name="qwen2.5-7b-instruct",
+    model_path="./models/Qwen3-0.6B-instruct",
+    model_name="Qwen3-0.6B-instruct",
     metadata=metadata,
 )
 
 # Promote to production
 mlflow_service.promote_model(
-    model_name="qwen2.5-7b-instruct",
+    model_name="Qwen3-0.6B-instruct",
     version=version,
     stage="Production",
 )
@@ -48907,7 +48907,7 @@ releases:
       - kserve/values.yaml
     set:
       - name: vllm.modelUri
-        value: gs://{{ env "GCS_BUCKET" }}/models/qwen2.5-7b-instruct
+        value: gs://{{ env "GCS_BUCKET" }}/models/Qwen3-0.6B-instruct
 
   # NGINX Ingress Controller
   - name: nginx-ingress
@@ -49034,7 +49034,7 @@ spec:
     model:
       modelFormat:
         name: vllm
-      storageUri: mlflow://qwen2.5-7b-instruct/Production  # MLFlow model registry
+      storageUri: mlflow://Qwen3-0.6B-instruct/Production  # MLFlow model registry
       resources:
         limits:
           cpu: "8"
@@ -49099,7 +49099,7 @@ def export_mlflow_metrics():
     """Export MLFlow metrics to Prometheus."""
     client = mlflow.tracking.MlflowClient()
 
-    for model_name in ["qwen2.5-7b-instruct", "embedding-model"]:
+    for model_name in ["Qwen3-0.6B-instruct", "embedding-model"]:
         versions = client.get_latest_versions(name=model_name, stages=["Production"])
 
         if versions:
@@ -49413,11 +49413,11 @@ vim tests/unit/test_<missing_module>.py
 **Issue**: MLFlow model not found
 ```bash
 # Solution: Check model registry
-mlflow models list --model-name qwen2.5-7b-instruct
+mlflow models list --model-name Qwen3-0.6B-instruct
 
 # Promote model to production
 mlflow models update \
-  --name qwen2.5-7b-instruct \
+  --name Qwen3-0.6B\
   --version 1 \
   --stage Production
 ```
@@ -61358,11 +61358,11 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 ```
 - **Required for:** All LLM and RAG tests
-- **Model:** Qwen/Qwen2.5-7B-Instruct (7B parameters)
+- **Model:** Qwen/Qwen3-0.6B(7B parameters)
 - **URL:** http://localhost:8000/v1 (OpenAI-compatible)
 - **GPU:** Requires NVIDIA GPU (tested on RTX 4070Ti 12GB)
 
@@ -61543,7 +61543,7 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct \
+  --model Qwen/Qwen3-0.6B\
   --gpu-memory-utilization 0.95
 
 # Wait for vLLM to load model (~30-60 seconds)
@@ -61631,7 +61631,7 @@ Expected output with vLLM running:
 **Workaround:** Start vLLM before running tests, check health endpoint
 
 ### 3. GPU Memory Requirements
-**Issue:** Qwen2.5-7B requires ~8GB VRAM  
+**Issue:** Qwen3-0.6B requires ~8GB VRAM  
 **Impact:** Cannot run on systems without adequate GPU  
 **Alternative:** Use smaller model (e.g., Qwen2.5-3B) for testing
 
@@ -63015,7 +63015,7 @@ User → FastAPI → Orchestrator → RAG Pipeline → {Embedding, VectorDB, LLM
 ```python
 client = LLMClientService(
     base_url="http://localhost:8000/v1",
-    model="Qwen/Qwen2.5-7B-Instruct"
+    model="Qwen/Qwen3-0.6B-Instruct"
 )
 
 answer = await client.generate(
@@ -63197,7 +63197,7 @@ docker run -d --gpus all \
   -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct
+  --model Qwen/Qwen3-0.6B-Instruct
 ```
 
 ### Start FastAPI Server
@@ -63299,7 +63299,7 @@ Result: Test PASSES ✅
 | **End-to-End RAG Query** | **~300-400ms** | **~5-10 QPS** |
 
 **Note:** Performance depends on:
-- Model size (Qwen2.5-7B vs larger)
+- Model size (Qwen3-0.6B vs larger)
 - GPU availability (RTX 4070Ti 12GB)
 - Batch size and concurrent requests
 - Collection size in Qdrant
@@ -72849,7 +72849,7 @@ See the high-level architecture diagram: [`../../images/high_level_architecture_
   - GPU Utilization: 95%+
 
 #### Models
-- **Primary**: Qwen2.5-7B-Instruct (text generation)
+- **Primary**: Qwen3-0.6B(text generation)
 - **Multimodal**: MiniCPM-V-2 (vision tasks)
 
 #### Deployment
@@ -73482,12 +73482,12 @@ class RAGPipeline:
 
         # Track token usage
         llm_token_count.labels(
-            model='qwen2.5-7b-instruct',
+            model='Qwen3-0.6B-instruct',
             type='input'
         ).inc(response['usage']['prompt_tokens'])
 
         llm_token_count.labels(
-            model='qwen2.5-7b-instruct',
+            model='Qwen3-0.6B-instruct',
             type='output'
         ).inc(response['usage']['completion_tokens'])
 
@@ -78321,11 +78321,11 @@ async def test_llm_client_initialization():
     client = LLMClientService(
         base_url="http://localhost:8000/v1",
         api_key="dummy-key",
-        model="Qwen/Qwen2.5-7B-Instruct"
+        model="Qwen/Qwen3-0.6B-Instruct"
     )
 
     assert client.base_url == "http://localhost:8000/v1"
-    assert client.model == "Qwen/Qwen2.5-7B-Instruct"
+    assert client.model == "Qwen/Qwen3-0.6B-Instruct"
     assert client.client is not None
 
 
@@ -82695,13 +82695,13 @@ class TestSettings:
         """Test vLLM configuration loading."""
         with patch.dict(os.environ, {
             "VLLM_BASE_URL": "http://vllm:8000/v1",
-            "VLLM_MODEL": "Qwen/Qwen2.5-7B",
+            "VLLM_MODEL": "Qwen/Qwen3-0.6B",
         }, clear=True):
             from app.config import Settings
             test_settings = Settings()
 
             assert test_settings.vllm_base_url == "http://vllm:8000/v1"
-            assert test_settings.vllm_model == "Qwen/Qwen2.5-7B"
+            assert test_settings.vllm_model == "Qwen/Qwen3-0.6B"
 
     def test_embedding_configuration(self):
         """Test embedding model configuration."""
@@ -85614,7 +85614,7 @@ async def test_orchestrator_initialization():
     orchestrator = OrchestratorService(
         vectordb_url="http://localhost:6333",
         llm_base_url="http://localhost:8000/v1",
-        llm_model="Qwen/Qwen2.5-7B-Instruct"
+        llm_model="Qwen/Qwen3-0.6B-Instruct"
     )
 
     assert orchestrator.embedding_service is not None
@@ -86713,7 +86713,7 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - Model versioning
   - Canary deployments
 - **Models**:
-  - Qwen2.5-7B-Instruct (primary text model)
+  - Qwen3-0.6B(primary text model)
   - MiniCPM-V-2 (multimodal vision model)
 - **Deployment**:
   - Development: vLLM Docker container
@@ -90771,13 +90771,13 @@ class TestSettings:
         """Test vLLM configuration loading."""
         with patch.dict(os.environ, {
             "VLLM_BASE_URL": "http://vllm:8000/v1",
-            "VLLM_MODEL": "Qwen/Qwen2.5-7B",
+            "VLLM_MODEL": "Qwen/Qwen3-0.6B",
         }, clear=True):
             from app.config import Settings
             test_settings = Settings()
 
             assert test_settings.vllm_base_url == "http://vllm:8000/v1"
-            assert test_settings.vllm_model == "Qwen/Qwen2.5-7B"
+            assert test_settings.vllm_model == "Qwen/Qwen3-0.6B"
 
     def test_embedding_configuration(self):
         """Test embedding model configuration."""
@@ -93864,7 +93864,7 @@ async def test_orchestrator_initialization():
     orchestrator = OrchestratorService(
         vectordb_url="http://localhost:6333",
         llm_base_url="http://localhost:8000/v1",
-        llm_model="Qwen/Qwen2.5-7B-Instruct"
+        llm_model="Qwen/Qwen3-0.6B-Instruct"
     )
 
     assert orchestrator.embedding_service is not None
@@ -94977,7 +94977,7 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - Model versioning
   - Canary deployments
 - **Models**:
-  - Qwen2.5-7B-Instruct (primary text model)
+  - Qwen3-0.6B(primary text model)
   - MiniCPM-V-2 (multimodal vision model)
 - **Deployment**:
   - Development: vLLM Docker container
