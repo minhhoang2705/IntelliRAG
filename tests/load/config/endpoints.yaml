@@ -1,0 +1,38 @@
+# Service Endpoint Configurations
+# Last Updated: 2025-11-23
+
+endpoints:
+  vllm:
+    url: "https://llm.blockchainradar.xyz"
+    health: "/health"
+    inference: "/v1/chat/completions"
+    model: "Qwen/Qwen3-0.6B"
+    description: "vLLM GPU inference on RTX 4070 Ti (via CloudFlare Tunnel)"
+
+  embedding:
+    url: "https://embed.blockchainradar.xyz"
+    health: "/health"
+    vectorize: "/vectorize"
+    model: "embeddinggemma-300m"
+    dimensions: 768
+    description: "BGE-M3 embedding service on KServe (local minikube)"
+
+  gke_app:
+    local_port: 8000
+    namespace: "app"
+    service_name: "intellirag-app"
+    health: "/ready"
+    query: "/api/v1/query"
+    description: "FastAPI application on GKE (requires port-forward)"
+    port_forward_cmd: "kubectl port-forward -n app svc/intellirag-app 8000:8000"
+
+# Default request timeouts (seconds)
+timeouts:
+  vllm: 30
+  embedding: 10
+  gke_app: 60
+
+# Retry configuration
+retry:
+  max_attempts: 3
+  backoff_factor: 2

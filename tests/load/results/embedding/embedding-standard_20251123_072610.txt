@@ -1,0 +1,48 @@
+
+Summary:
+  Total:	169.3261 secs
+  Slowest:	9.6621 secs
+  Fastest:	0.0620 secs
+  Average:	1.5696 secs
+  Requests/sec:	11.8115
+  
+  Total data:	2520 bytes
+  Size/request:	3 bytes
+
+Response time histogram:
+  0.062 [1]	|
+  1.022 [345]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  1.982 [302]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  2.942 [43]	|■■■■■
+  3.902 [3]	|
+  4.862 [0]	|
+  5.822 [2]	|
+  6.782 [2]	|
+  7.742 [5]	|■
+  8.702 [4]	|
+  9.662 [42]	|■■■■■
+
+
+Latency distribution:
+  10% in 0.0817 secs
+  25% in 0.5917 secs
+  50% in 1.1020 secs
+  75% in 1.5490 secs
+  90% in 2.4257 secs
+  95% in 8.9878 secs
+  99% in 9.0041 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0095 secs, 0.0620 secs, 9.6621 secs
+  DNS-lookup:	0.0001 secs, 0.0000 secs, 0.0077 secs
+  req write:	0.0000 secs, 0.0000 secs, 0.0006 secs
+  resp wait:	1.5536 secs, 0.0620 secs, 9.5485 secs
+  resp read:	0.0051 secs, 0.0000 secs, 0.4367 secs
+
+Status code distribution:
+  [200]	581 responses
+  [502]	168 responses
+
+Error distribution:
+  [1251]	Post "https://embed.blockchainradar.xyz/vectorize": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+

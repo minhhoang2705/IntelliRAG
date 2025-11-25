@@ -1,0 +1,20 @@
+
+[0;35m╔════════════════════════════════════════════════════════════╗[0m
+[0;35m║                                                            ║[0m
+[0;35m║        IntelliRAG Day 2 Load Testing Suite                ║[0m
+[0;35m║                                                            ║[0m
+[0;35m╚════════════════════════════════════════════════════════════╝[0m
+
+Test Configuration:
+  vLLM:      1
+  Embedding: 1
+  E2E:       1
+  Skip Breaking: 1
+
+
+[0;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;36m  Pre-flight Checks[0m
+[0;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+Checking hey... [0;31m✗ Not found[0m
+[1;33mInstall with: go install github.com/rakyll/hey@latest[0m

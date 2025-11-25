@@ -1,0 +1,106 @@
+# Load Test Profile Configurations
+# Last Updated: 2025-11-23
+
+# vLLM Load Test Profiles
+vllm:
+  baseline:
+    concurrent: 50
+    total_requests: 1000
+    max_tokens: 20
+    content: "Hello"
+    description: "Baseline performance test"
+
+  stress:
+    concurrent: 100
+    total_requests: 2000
+    max_tokens: 50
+    content: "Explain AI in 30 words"
+    description: "Stress test with moderate load"
+
+  breaking_point:
+    start_concurrent: 100
+    step: 50
+    max_concurrent: 300
+    requests_per_step: 500
+    max_tokens: 10
+    content: "Test"
+    description: "Find breaking point incrementally"
+
+  sustained:
+    concurrent: 80
+    duration_minutes: 10
+    max_tokens: 30
+    content: "Describe machine learning concepts"
+    description: "Sustained load at 80% of breaking point"
+
+# Embedding Service Profiles
+embedding:
+  standard:
+    concurrent: 100
+    total_requests: 2000
+    batch_size: 5
+    normalize: true
+    description: "Standard load with 5 texts per request"
+
+  large_batch:
+    concurrent: 50
+    total_requests: 1000
+    batch_size: 10
+    normalize: true
+    description: "Large batch test with 10 texts per request"
+
+  batch_optimization:
+    concurrent: 30
+    total_requests: 500
+    batch_sizes: [1, 3, 5, 10, 20]
+    normalize: true
+    description: "Find optimal batch size for throughput"
+
+  breaking_point:
+    start_concurrent: 100
+    step: 50
+    max_concurrent: 300
+    requests_per_step: 500
+    batch_size: 3
+    normalize: true
+    description: "Find CPU saturation point"
+
+# End-to-End RAG Profiles (Locust)
+e2e_rag:
+  normal:
+    users: 50
+    spawn_rate: 5
+    duration_minutes: 5
+    description: "Normal user load"
+
+  high:
+    users: 100
+    spawn_rate: 10
+    duration_minutes: 5
+    description: "High concurrent user load"
+
+  stress:
+    users: 200
+    spawn_rate: 20
+    duration_minutes: 3
+    description: "Stress test to find system limits"
+
+  spike:
+    initial_users: 10
+    spike_users: 150
+    spike_duration_seconds: 60
+    total_duration_minutes: 5
+    description: "Sudden traffic spike simulation"
+
+# Query templates for RAG testing
+query_templates:
+  - "What is machine learning?"
+  - "Explain neural networks in simple terms"
+  - "How does RAG work?"
+  - "What are transformers in NLP?"
+  - "Describe gradient descent"
+  - "What is deep learning?"
+  - "Explain convolutional neural networks"
+  - "How do attention mechanisms work?"
+  - "What is the difference between supervised and unsupervised learning?"
+  - "Explain backpropagation algorithm"

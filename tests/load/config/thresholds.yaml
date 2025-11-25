@@ -1,0 +1,82 @@
+# Performance Thresholds and Success Criteria
+# Last Updated: 2025-11-23
+# Based on Day 1 Performance Analysis
+
+# vLLM Service Thresholds
+vllm:
+  success_rate_min: 99.0  # Minimum success rate (%)
+  latency:
+    p50_max_ms: 200
+    p95_max_ms: 500
+    p99_max_ms: 1000
+  throughput_min_rps: 50  # Minimum requests per second
+  gpu:
+    utilization_target: 99  # Expected GPU utilization (%)
+    memory_max_mb: 12000    # RTX 4070 Ti 12GB limit
+    temp_max_celsius: 83    # Safe temperature threshold
+
+  # Breaking point criteria
+  breaking_point:
+    max_error_rate: 1.0     # Error rate that indicates breaking point (%)
+    latency_degradation: 2.0  # P95 latency multiplier threshold
+
+# Embedding Service Thresholds
+embedding:
+  success_rate_min: 99.0
+  latency:
+    p50_max_ms: 150
+    p95_max_ms: 300
+    p99_max_ms: 500
+  throughput_min_rps: 100
+  cpu:
+    peak_utilization_max: 100  # Maximum CPU utilization (%)
+    safe_utilization: 70       # Target for HPA scaling
+  memory:
+    stable_mb: 1325            # Expected stable memory usage
+    max_mb: 2000               # Maximum before OOM risk
+
+  # Batch size optimization
+  batch_optimization:
+    latency_increase_max_pct: 50  # Max acceptable latency increase (%)
+    throughput_increase_min_pct: 30  # Min required throughput gain (%)
+
+# End-to-End RAG Thresholds
+e2e_rag:
+  normal_load:
+    failure_rate_max: 1.0    # Maximum failure rate (%)
+    p50_max_seconds: 3.0
+    p95_max_seconds: 5.0
+    p99_max_seconds: 8.0
+
+  high_load:
+    failure_rate_max: 2.0
+    p95_max_seconds: 8.0
+    degradation_acceptable: true
+
+  stress_load:
+    failure_rate_max: 5.0    # Higher tolerance under stress
+    p95_max_seconds: 15.0
+
+# Capacity Planning Thresholds
+capacity:
+  safety_buffer: 0.7         # Operate at 70% of breaking point
+  hpa_scale_trigger: 0.70    # Scale at 70% of resource limit
+  cost_per_replica_usd: 50   # Estimated monthly cost per pod
+
+# HPA Configuration Recommendations
+hpa_targets:
+  cpu_utilization: 70        # CPU-based scaling trigger (%)
+  memory_utilization: 75     # Memory-based scaling trigger (%)
+  min_replicas: 2            # High availability baseline
+  max_replicas: 15           # Budget constraint
+  scale_up_cooldown_sec: 60
+  scale_down_cooldown_sec: 300
+
+# Alert Thresholds (for monitoring)
+alerts:
+  critical:
+    error_rate_pct: 5.0
+    latency_p95_multiplier: 3.0
+  warning:
+    error_rate_pct: 2.0
+    latency_p95_multiplier: 2.0
