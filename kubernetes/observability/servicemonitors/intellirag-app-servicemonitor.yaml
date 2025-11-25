@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: intellirag-app
+  namespace: app
+  labels:
+    app: intellirag-app
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: intellirag-app
+  namespaceSelector:
+    matchNames:
+      - app
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
