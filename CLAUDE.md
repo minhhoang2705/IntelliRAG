@@ -100,9 +100,12 @@ The high-level architecture can be seen at this path `./images/high_level_archit
 - **Models**:
   - Qwen3-0.6B(primary text model)
   - MiniCPM-V-2 (multimodal vision model)
-- **Deployment**:
-  - Development: vLLM Docker container
-  - Production: KServe InferenceService with vLLM runtime
+- **Deployment** (Hybrid Architecture):
+  - **Local GPU Server** (RTX 4070Ti):
+    - Development: vLLM Docker container (port 8000)
+    - Production/Demo: KServe InferenceService on local minikube (port 8080)
+    - Connectivity: CloudFlare Tunnel exposes endpoints to GKE
+  - **GKE Cloud**: FastAPI, Qdrant, Observability (no GPU nodes)
 - **httpx**: Async HTTP client with OpenAI SDK
 
 ### **Agentic RAG & Query Routing**
@@ -135,14 +138,27 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - Answer relevance
 
 ### **Infrastructure**
-- **Kubernetes**: Local development ready, GKE deployment planned
-  - KServe configurations for model serving
-  - Observability stack helmfiles
-  - Namespace configurations
+- **Kubernetes Hybrid Deployment**:
+  - **GKE Standard** (Cloud): FastAPI, Qdrant, Observability
+    - Cluster: 1-3 nodes (e2-standard-4), asia-southeast1
+    - Namespaces: app, kserve (reserved), observability
+    - Cost: ~$109-322/month (1-3 nodes)
+  - **Minikube** (Local GPU Server): KServe model serving
+    - vLLM InferenceService (Qwen3-0.6B)
+    - BGE-M3 Embedding InferenceService
+    - GPU: NVIDIA RTX 4070Ti 12GB
 - **Helm**: Helmfile for multi-chart management [IMPLEMENTED]
   - Observability stack (Prometheus, Grafana, Jaeger, Loki)
-  - KServe inference services
-- **Terraform**: IaC for GKE provisioning [PLANNED - Not Yet Implemented]
+  - KServe inference services (local minikube)
+- **Terraform**: IaC for GKE provisioning [IMPLEMENTED]
+  - GKE Standard cluster with VPC networking
+  - Service accounts with Workload Identity
+  - GCS buckets for data and models
+  - State stored in GCS backend
+- **CloudFlare Tunnel**: Secure connectivity between GKE and local GPU
+  - Exposes: `https://gpu.intellirag.example.com`
+  - No public IP or port forwarding needed
+  - End-to-end TLS encryption
 - **HPA**: Horizontal Pod Autoscaler [PLANNED - Not Yet Deployed]
 
 ### **Inference Performance**
@@ -157,16 +173,21 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - Concurrent Users: 128+ (5.8x vs Ollama's 22)
   - GPU Utilization: 95%+ (35% improvement vs Ollama)
   - Memory Efficiency: PagedAttention reduces fragmentation by 60%
-- **Deployment Configurations**:
-  - **Development**: vLLM Docker container with GPU passthrough
-    - Model cache mounted from host: `~/.cache/huggingface`
-    - OpenAI-compatible API on `localhost:8000`
-    - Hot reload for rapid testing
-  - **Production**: KServe InferenceService with vLLM runtime
-    - GKE Autopilot with GPU node pools
-    - Horizontal autoscaling with scale-to-zero
-    - Prometheus metrics export enabled
-    - Model versioning via S3/GCS storage
+- **Deployment Configurations** (Hybrid Model):
+  - **Development** (Local GPU Server):
+    - vLLM Docker container with GPU passthrough
+    - Model cache: `~/.cache/huggingface`
+    - OpenAI-compatible API: `http://localhost:8000`
+    - Hot reload for rapid iteration
+  - **Production/Demo** (Local GPU Server):
+    - Minikube with KServe (v0.14.1)
+    - vLLM InferenceService with vLLM runtime
+    - BGE-M3 InferenceService for embeddings
+    - KServe gateway: `http://localhost:8080`
+    - Exposed via CloudFlare Tunnel: `https://gpu.intellirag.example.com`
+  - **Cost Optimization**: No GKE GPU nodes (~$2,000/month saved)
+  - **Network**: GKE FastAPI calls local GPU via CloudFlare Tunnel
+  - **Latency**: +10-30ms tunnel overhead, total P95 < 200ms
 
 ### **Observability Stack**
 - **Prometheus**: Metrics collection [IMPLEMENTED]
@@ -427,57 +448,77 @@ rag-system/
 ### **Flow 1: Document Ingestion**
 
 ```
-User → Upload File → FastAPI Orchestrator
-                          ↓
-                   ┌──────┴──────┐
-                   ↓              ↓
-         Store Raw Document    Ingestion Pipeline:
-         in GCS Bucket         ├─> Load from GCS (LangChain Loaders)
-                              ├─> Parse (Docling for PDFs)
-                              ├─> Chunk (SemanticChunkerService)
-                              └─> Embed (BGE-M3 Embedding)
-                                  ↓
-                              Qdrant (Store Vectors + Metadata)
-                              - Vector embeddings (1024-dim)
-                              - Document metadata in payload
-                              - GCS path reference
-                              - Collection metadata
-                                  ↓
-                              Job State Management
-                              (Track progress, report status)
+User → Upload File → NGINX Ingress (GKE) → FastAPI Orchestrator (GKE)
+                                                 ↓
+                                          ┌──────┴──────┐
+                                          ↓              ↓
+                                Store Raw Document    Ingestion Pipeline:
+                                in GCS Bucket         ├─> Load from GCS (LangChain Loaders)
+                                                     ├─> Parse (Docling for PDFs)
+                                                     ├─> Chunk (SemanticChunkerService)
+                                                     └─> Embed (BGE-M3 Embedding)
+                                                         ↓ HTTPS
+                                                    CloudFlare Tunnel
+                                                    (https://gpu.intellirag.example.com)
+                                                         ↓
+                                                    Local GPU Server
+                                                    ├─> Minikube KServe Gateway
+                                                    └─> BGE-M3 InferenceService
+                                                         ↓ Return embeddings (1024-dim)
+                                                    FastAPI (GKE)
+                                                         ↓
+                                                    Qdrant (GKE - Store Vectors + Metadata)
+                                                    - Vector embeddings (1024-dim)
+                                                    - Document metadata in payload
+                                                    - GCS path reference
+                                                    - Collection metadata
+                                                         ↓
+                                                    Job State Management
+                                                    (Track progress, report status)
 ```
 
 ### **Flow 2: Query/RAG (Conditional Routing)**
 
 ```
-User → UI → NGINX → Orchestrator
-                        ↓
-                   LangGraph Agent
-                   (Query Analysis)
-                        ↓
-                   ┌────┴────┐
-                   │         │
-              Need RAG?   No (Direct)
-                   │         │
-                  Yes        └──────────┐
-                   │                    │
-                   ↓                    │
-              Embed Query               │
-                   ↓                    │
-              Qdrant (Retrieve)         │
-                   ↓                    │
-              Format Prompt             │
-              (Query + Context)         │
-                   │                    │
-                   └─────────┬──────────┘
-                             ↓
-                    vLLM Service (OpenAI API)
-                    ├─> Dev: Docker Container
-                    └─> Prod: KServe → vLLM → GPU (Qwen2.5)
-                             ↓
-                    Generate Answer
-                             ↓
-                    User ← UI ← NGINX
+User → NGINX Ingress (GKE) → FastAPI Orchestrator (GKE)
+                                     ↓
+                               LangGraph Agent
+                               (Query Analysis)
+                                     ↓
+                               ┌────┴────┐
+                               │         │
+                          Need RAG?   No (Direct)
+                               │         │
+                              Yes        └──────────┐
+                               │                    │
+                               ↓                    │
+                          Embed Query               │
+                               ↓ HTTPS              │
+                          CloudFlare Tunnel         │
+                          (https://gpu.intellirag.example.com)
+                               ↓                    │
+                          Local GPU Server          │
+                          BGE-M3 InferenceService   │
+                               ↓ Return embedding   │
+                          FastAPI (GKE)             │
+                               ↓                    │
+                          Qdrant (GKE - Retrieve)   │
+                               ↓                    │
+                          Format Prompt             │
+                          (Query + Context)         │
+                               │                    │
+                               └─────────┬──────────┘
+                                         ↓
+                                    Generate Answer
+                                         ↓ HTTPS
+                                    CloudFlare Tunnel
+                                         ↓
+                                    Local GPU Server
+                                    vLLM InferenceService (Qwen3-0.6B)
+                                         ↓ Return generated text
+                                    FastAPI (GKE)
+                                         ↓
+                                    User ← NGINX Ingress
 
 Decision Logic:
 - Factual questions → Direct answer (no RAG)
@@ -485,10 +526,13 @@ Decision Logic:
 - Conversational → Direct answer
 - Document queries → RAG retrieval
 
-Performance:
-- Throughput: 793 TPS (19x vs Ollama)
-- P99 Latency: 80ms (8x faster vs Ollama)
+Performance (Hybrid Architecture):
+- vLLM Throughput: 793 TPS (19x vs Ollama)
+- vLLM P99 Latency: 80ms (local GPU)
+- CloudFlare Tunnel Overhead: +10-30ms
+- Total P95 Latency: <200ms ✅
 - GPU Utilization: 95%+ (PagedAttention)
+- Cost Savings: ~$2,000/month (vs GKE GPU nodes)
 ```
 
 ### **Flow 3: CI/CD**
@@ -596,6 +640,7 @@ Every Request:
   - "🤖 Generated with [Claude Code]"
   - "Co-Authored-By: Claude noreply@anthropic.com"
   - Any AI tool attribution or signature
+- NEVER add emojis or other non-standard characters in codes or documents
 - Create clean, professional commit messages without AI references
 - Use conventional commit format: `<type>(<scope>): <description>`
   - Examples: `feat(api): add query endpoint`, `fix(vectordb): handle connection timeout`
@@ -654,3 +699,4 @@ If you pushed back and were wrong:
 ```
 
 State the coorection factually and move on
+- **IMPORTANT**: remember all deployment to GKE will be using Helm

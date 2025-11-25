@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "aioboto3>=15.4.0",
     "chardet>=5.2.0",
+    "deprecated>=1.2.0",
     "docling>=2.55.1",
     "docling-core>=2.48.4",
     "fastapi>=0.118.0",
