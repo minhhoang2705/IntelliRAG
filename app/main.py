@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 import os
 import httpx
 import time
+import asyncio
 from prometheus_client import Counter
 from fastapi import FastAPI, HTTPException, Response, status
 from app.services import embedding
@@ -107,7 +108,7 @@ async def health_check():
 
 @app.get("/ready", status_code = status.HTTP_200_OK, tags=["Health"])
 async def readiness_check():
-    """Readiness probe endpoint with dependency check"""
+    """Readiness probe endpoint with concurrent dependency checks"""
     readiness_check_counter.inc()
     
     health_status = {
@@ -116,8 +117,6 @@ async def readiness_check():
         "service": "intellirag-api",
         "check": {}
     }
-    
-    all_healthy = True
     
     # Check if orchestrator is initialized
     if orchestrator is None:
@@ -132,80 +131,123 @@ async def readiness_check():
             detail=health_status
         )
     
-    # Check Qdrant connectivity
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            qdrant_url = f"{orchestrator.vectordb_service.url}/"
-            response = await client.get(qdrant_url)
-            health_status["check"]["qdrant"] = {
-                "status": "healthy" if response.status_code == 200 else "unhealthy",
-                "response_time": response.elapsed.total_seconds() * 1000 # in milliseconds
+    # Define concurrent health check functions
+    async def check_qdrant():
+        """Check Qdrant connectivity"""
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                qdrant_url = f"{orchestrator.vectordb_service.url}/"
+                response = await client.get(qdrant_url)
+                return {
+                    "status": "healthy" if response.status_code == 200 else "unhealthy",
+                    "response_time": response.elapsed.total_seconds() * 1000,
+                    "critical": True
+                }
+        except Exception as e:
+            readiness_check_failures.labels(component="qdrant").inc()
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "critical": True
             }
-            if response.status_code != 200:
-                all_healthy = False
-                readiness_check_failures.labels(component="qdrant").inc()
-    except Exception as e:
-        health_status["check"]["qdrant"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
-        all_healthy = False
-        readiness_check_failures.labels(component="qdrant").inc()
-        
-    # check LLM endpoint
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            llm_url = f"{orchestrator.llm_client.base_url}/models"
-            response = await client.get(llm_url)
-            health_status["check"]["llm"] = {
-                "status": "healthy" if response.status_code == 200 else "unhealthy",
-                "response_time": response.elapsed.total_seconds() * 1000 # in milliseconds
-            }
-            if response.status_code != 200:
-                all_healthy = False
-                readiness_check_failures.labels(component="llm").inc()
-    except Exception as e:
-        health_status["check"]["llm"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
-        all_healthy = False
-        readiness_check_failures.labels(component="llm").inc()
-
-    # check embedding endpoint
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            embedding_url = f"{orchestrator.embedding_service.remote_url}/health"
-            response = await client.get(embedding_url)
-            health_status["check"]["embedding"] = {
-                "status": "healthy" if response.status_code == 200 else "unhealthy",
-                "response_time": response.elapsed.total_seconds() * 1000 # in milliseconds
-            }
-            if response.status_code != 200:
-                all_healthy = False
-                readiness_check_failures.labels(component="embedding").inc()
-    except Exception as e:
-        health_status["check"]["embedding"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
-        all_healthy = False
-        readiness_check_failures.labels(component="embedding").inc()
     
-    # check GCS access
+    async def check_llm():
+        """Check LLM endpoint"""
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                llm_url = f"{orchestrator.llm_client.base_url}/models"
+                response = await client.get(llm_url)
+                return {
+                    "status": "healthy" if response.status_code == 200 else "unhealthy",
+                    "response_time": response.elapsed.total_seconds() * 1000,
+                    "critical": True
+                }
+        except Exception as e:
+            readiness_check_failures.labels(component="llm").inc()
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "critical": True
+            }
+    
+    async def check_embedding():
+        """Check embedding endpoint (non-critical)"""
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                embedding_url = f"{orchestrator.embedding_service.remote_url}/health"
+                response = await client.get(embedding_url)
+                return {
+                    "status": "healthy" if response.status_code == 200 else "unhealthy",
+                    "response_time": response.elapsed.total_seconds() * 1000,
+                    "critical": False
+                }
+        except Exception as e:
+            readiness_check_failures.labels(component="embedding").inc()
+            logger.warning(f"Embedding service check failed (non-critical): {e}")
+            return {
+                "status": "degraded",
+                "error": str(e),
+                "critical": False
+            }
+    
+    # Run all HTTP checks concurrently
+    qdrant_result, llm_result, embedding_result = await asyncio.gather(
+        check_qdrant(),
+        check_llm(),
+        check_embedding(),
+        return_exceptions=True
+    )
+    
+    # Process results
+    health_status["check"]["qdrant"] = qdrant_result if not isinstance(qdrant_result, Exception) else {
+        "status": "unhealthy",
+        "error": str(qdrant_result),
+        "critical": True
+    }
+    health_status["check"]["llm"] = llm_result if not isinstance(llm_result, Exception) else {
+        "status": "unhealthy",
+        "error": str(llm_result),
+        "critical": True
+    }
+    health_status["check"]["embedding"] = embedding_result if not isinstance(embedding_result, Exception) else {
+        "status": "degraded",
+        "error": str(embedding_result),
+        "critical": False
+    }
+    
+    # Check GCS access (synchronous check)
     try:
         if orchestrator.gcs_loader.bucket is not None:
-            health_status["check"]["gcs"] = {"status": "healthy"}
+            health_status["check"]["gcs"] = {"status": "healthy", "critical": True}
         else:
-            health_status["check"]["gcs"] = {"status": "unhealthy", "error": "GCS bucket not configured"}
-            all_healthy = False
+            health_status["check"]["gcs"] = {
+                "status": "unhealthy",
+                "error": "GCS bucket not configured",
+                "critical": True
+            }
             readiness_check_failures.labels(component="gcs").inc()
     except Exception as e:
-        health_status["check"]["gcs"] = {"status": "unhealthy", "error": str(e)}
-        all_healthy = False
+        health_status["check"]["gcs"] = {
+            "status": "unhealthy",
+            "error": str(e),
+            "critical": True
+        }
         readiness_check_failures.labels(component="gcs").inc()
     
-    if not all_healthy:
+    # Determine overall health based on critical services only
+    critical_checks = [
+        health_status["check"].get("qdrant", {}),
+        health_status["check"].get("llm", {}),
+        health_status["check"].get("gcs", {})
+    ]
+    
+    all_critical_healthy = all(
+        check.get("status") == "healthy" 
+        for check in critical_checks 
+        if check.get("critical", False)
+    )
+    
+    if not all_critical_healthy:
         health_status["status"] = "not ready"
         raise HTTPException(
             status_code = status.HTTP_503_SERVICE_UNAVAILABLE,

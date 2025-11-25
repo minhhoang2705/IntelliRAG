@@ -36,7 +36,6 @@ async def query_endpoint(
         "answer": result["answer"],
         "sources": result["sources"],
         "query": request.query,
-        # CHANGE: Use actual value from orchestrator
         "used_rag": result["used_rag"],
         "classification": classification_schema
     }
