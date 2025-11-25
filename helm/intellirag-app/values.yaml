@@ -6,7 +6,7 @@ replicaCount: 2
 image:
   repository: gcr.io/intellirag-aide1-capstone/intellirag-api
   pullPolicy: Always
-  tag: "v1.0.6"
+  tag: "v1.0.7"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -26,14 +26,21 @@ podAnnotations:
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
+  runAsGroup: 1000
   fsGroup: 1000
+  fsGroupChangePolicy: "OnRootMismatch"
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
   capabilities:
     drop:
       - ALL
-  readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
 
 service:
   type: ClusterIP
@@ -57,7 +64,7 @@ resources:
     memory: 4Gi
   requests:
     cpu: 500m
-    memory: 1Gi
+    memory: 1536Mi  # Increased from 1Gi to 1.5Gi for 50% headroom
 
 autoscaling:
   enabled: true
@@ -141,7 +148,7 @@ readinessProbe:
     port: 8000
   initialDelaySeconds: 10
   periodSeconds: 5
-  timeoutSeconds: 5
+  timeoutSeconds: 8  # Increased to accommodate concurrent checks with 3s individual timeouts
   failureThreshold: 3
 
 # Secrets (Optional - for sensitive data like API keys)
