@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kserve-external-routes
+  namespace: istio-system
+spec:
+  hosts:
+  - "llm.blockchainradar.xyz"
+  - "embed.blockchainradar.xyz"
+  gateways:
+  - knative-serving/knative-ingress-gateway
+  http:
+  # Route LLM requests
+  - match:
+    - authority:
+        exact: "llm.blockchainradar.xyz"
+    route:
+    - destination:
+        host: vllm-qwen-predictor.kserve.svc.cluster.local
+        port:
+          number: 80
+      weight: 100
+  # Route Embedding requests
+  - match:
+    - authority:
+        exact: "embed.blockchainradar.xyz"
+    route:
+    - destination:
+        host: embedding-service-predictor.kserve.svc.cluster.local
+        port:
+          number: 80
+      weight: 100

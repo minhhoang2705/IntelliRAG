@@ -11,22 +11,20 @@ spec:
         args:
           - --model=Qwen/Qwen3-0.6B
           - --dtype=bfloat16
-          - --max-model-len=2048
-          - --gpu-memory-utilization=0.5
-          - --enable-lora
+          - --max-model-len=8192
+          - --gpu-memory-utilization=0.85
+          - --max-num-seqs=256
+          - --kv-cache-dtype=fp8
           - --enable-prefix-caching
-          - --block-size=32
-          - --cpu-offload-gb=2
-          - --swap-space=8
         resources:
           limits:
-            cpu: "4"
+            cpu: "3"
             nvidia.com/gpu: "1"
-            memory: 10Gi
+            memory: 12Gi
           requests:
             nvidia.com/gpu: "1"
             memory: 8Gi
-            cpu: "2"
+            cpu: "1"
         ports:
           - containerPort: 8000
             protocol: TCP

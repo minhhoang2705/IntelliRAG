@@ -1,231 +1,293 @@
-# KServe InferenceService Manifests
+# KServe InferenceServices Deployment
 
-This directory contains Kubernetes manifests for deploying IntelliRAG models with KServe.
+This directory contains Kubernetes manifests for deploying KServe InferenceServices on Minikube with GPU support.
 
-## Files
+## Components
 
-- `vllm-qwen-inference.yaml` - LLM inference service (Qwen/Qwen3-0.6B via vLLM)
-- `embedding-bge-m3-inference.yaml` - Embedding service (BAAI/bge-m3)
-- `namespace.yaml` - Namespace and basic setup
+### InferenceServices
+- **vllm-qwen-inference.yaml** - vLLM-based LLM inference (Qwen3-0.6B)
+- **embedding-inference.yaml** - embedding service
+
+### Networking
+- **ingress.yaml** - NGINX Ingress for external access via CloudFlare Tunnel
+- **virtual-services.yaml** - Istio VirtualServices (reserved for future use)
+- **namespace.yaml** - Namespace definition
+
+---
+
+## Architecture
+
+```
+External Client
+    ↓ HTTPS
+CloudFlare Tunnel
+    ├─> llm.blockchainradar.xyz
+    └─> embed.blockchainradar.xyz
+         ↓ HTTP
+NGINX Ingress Controller (192.168.49.2:80)
+    ↓ Host-based routing
+         ├─> vllm-qwen-predictor-00001:80
+         └─> embedding-service-predictor-00001:80
+```
+
+---
 
 ## Prerequisites
 
-Before applying these manifests, ensure you have:
+1. **Minikube** with GPU support
+2. **NGINX Ingress** addon enabled
+3. **KServe** v0.14.1 installed
+4. **CloudFlare Tunnel** configured
 
-1. ✅ Minikube running with GPU support
-2. ✅ KServe and dependencies installed (Knative, Istio, cert-manager)
-3. ✅ NVIDIA device plugin running
-4. ✅ Namespace created and labeled
+---
 
-See [local-kserve-setup-guide.md](../../docs/deployment/local-kserve-setup-guide.md) for full setup instructions.
-
-## Quick Start
+## Deployment
 
 ### 1. Create Namespace
-
 ```bash
-kubectl create namespace intellirag
-kubectl label namespace intellirag istio-injection=enabled
+kubectl --context=minikube apply -f namespace.yaml
 ```
 
-### 2. Deploy vLLM Service
-
+### 2. Deploy InferenceServices
 ```bash
-kubectl apply -f vllm-qwen-inference.yaml
+# vLLM LLM Service
+kubectl --context=minikube apply -f vllm-qwen-inference.yaml
 
-# Wait for ready
-kubectl wait --for=condition=Ready inferenceservice/vllm-qwen -n intellirag --timeout=10m
-
-# Check status
-kubectl get inferenceservice vllm-qwen -n intellirag
+# Embedding Service
+kubectl --context=minikube apply -f embedding-inference.yaml
 ```
 
-### 3. Deploy Embedding Service
-
-First, build and load the embedding service image:
-
+### 3. Setup Ingress
 ```bash
-# Build image
-cd /home/minh-ubs-k8s/AIDE-1/capstone/IntelliRAG
-docker build -t intellirag-embedding:latest deploy/embedding-service/
+# Enable NGINX Ingress addon (if not already enabled)
+minikube addons enable ingress
 
-# Load into minikube
-minikube image load intellirag-embedding:latest
-
-# Deploy
-kubectl apply -f embedding-bge-m3-inference.yaml
-
-# Wait for ready
-kubectl wait --for=condition=Ready inferenceservice/embedding-bge-m3 -n intellirag --timeout=10m
+# Deploy Ingress resource
+kubectl --context=minikube apply -f ingress.yaml
 ```
 
-### 4. Access Services
-
+### 4. Verify Deployment
 ```bash
-# Port forward vLLM
-kubectl port-forward -n intellirag svc/vllm-qwen-predictor 8000:8080 &
+# Check InferenceServices
+kubectl --context=minikube get inferenceservices -n kserve
 
-# Port forward embedding
-kubectl port-forward -n intellirag svc/embedding-bge-m3-predictor 8001:8001 &
+# Check Ingress
+kubectl --context=minikube get ingress -n kserve
 
-# Test vLLM
-curl http://localhost:8000/health
-
-# Test embedding
-curl http://localhost:8001/health
+# Check pods
+kubectl --context=minikube get pods -n kserve
 ```
 
-## Configuration
+---
 
-### Adjust GPU Memory
+## Configuration Details
 
-Edit `vllm-qwen-inference.yaml`:
+### vLLM InferenceService
 
+- **Model:** Qwen/Qwen3-0.6B
+- **GPU:** 1x NVIDIA GPU
+- **Memory:** 8-10Gi
+- **Features:** LoRA, prefix caching, bfloat16
+
+**Key Arguments:**
 ```yaml
-command:
-  - --gpu-memory-utilization
-  - "0.5"  # Change to 0.95 for maximum GPU usage
+args:
+  - --model=Qwen/Qwen3-0.6B
+  - --dtype=bfloat16
+  - --max-model-len=2048
+  - --gpu-memory-utilization=0.5
+  - --enable-lora
+  - --enable-prefix-caching
 ```
 
-### Change Models
+### Embedding Service
 
-Edit the `--model` parameter in `vllm-qwen-inference.yaml`:
+- **Model:** google/embeddinggemma-300m
+- **Device:** CPU
+- **Dimensions:** 768
+- **Batch Size:** 32
 
-```yaml
-command:
-  - --model
-  - Qwen/Qwen3-0.6B # Larger model
-```
-
-Or edit `EMBEDDING_MODEL` in `embedding-bge-m3-inference.yaml`:
-
+**Environment Variables:**
 ```yaml
 env:
   - name: EMBEDDING_MODEL
-    value: sentence-transformers/all-MiniLM-L6-v2  # Smaller, faster model
+    value: "google/embeddinggemma-300m"
+  - name: DEVICE
+    value: "cpu"
+  - name: MAX_BATCH_SIZE
+    value: "32"
 ```
 
-### Enable Autoscaling
+### Ingress Configuration
 
-Add autoscaling configuration:
-
+**Key Annotations:**
 ```yaml
-spec:
-  predictor:
-    minReplicas: 0  # Scale to zero when idle
-    maxReplicas: 2
-    scaleTarget: 10
-    scaleMetric: concurrency
+annotations:
+  nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  nginx.ingress.kubernetes.io/upstream-vhost: "$service_name.$namespace.svc.cluster.local"
 ```
+
+The `upstream-vhost` annotation is **critical** for Knative routing to work correctly through NGINX Ingress.
+
+---
+
+## Accessing Services
+
+### Local Access (bypassing CloudFlare)
+
+```bash
+# vLLM Service
+curl -H "Host: llm.blockchainradar.xyz" http://192.168.49.2/v1/models
+
+# Embedding Service
+curl -H "Host: embed.blockchainradar.xyz" http://192.168.49.2/health
+```
+
+### External Access (via CloudFlare Tunnel)
+
+```bash
+# vLLM Service
+curl https://llm.blockchainradar.xyz/v1/models
+curl https://llm.blockchainradar.xyz/health
+
+# Embedding Service
+curl https://embed.blockchainradar.xyz/health
+curl -X POST https://embed.blockchainradar.xyz/embed \
+  -H "Content-Type: application/json" \
+  -d '{"texts": ["Hello world"]}'
+```
+
+---
 
 ## Troubleshooting
 
-### InferenceService Not Ready
+### InferenceService not ready
 
 ```bash
-# Check pod status
-kubectl get pods -n intellirag
+# Check status
+kubectl --context=minikube get inferenceservice <name> -n kserve -o yaml
 
-# Check logs
-kubectl logs -n intellirag -l serving.kserve.io/inferenceservice=vllm-qwen
+# Check predictor pod logs
+kubectl --context=minikube logs -n kserve <predictor-pod> -c kserve-container
 
 # Check events
-kubectl describe inferenceservice vllm-qwen -n intellirag
+kubectl --context=minikube describe inferenceservice <name> -n kserve
 ```
 
-### GPU Not Available
+### Ingress not routing
 
 ```bash
-# Check GPU allocation
-kubectl describe node minikube | grep nvidia.com/gpu
+# Check Ingress status
+kubectl --context=minikube describe ingress kserve-ingress -n kserve
 
-# Restart NVIDIA device plugin if needed
-kubectl delete daemonset nvidia-device-plugin-daemonset -n kube-system
-kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.3/nvidia-device-plugin.yml
+# Check Ingress controller logs
+kubectl --context=minikube logs -n ingress-nginx <ingress-controller-pod>
+
+# Verify service endpoints
+kubectl --context=minikube get endpoints -n kserve
 ```
 
-### Out of Memory
+### 502 Bad Gateway from CloudFlare
+
+This typically means:
+1. CloudFlare Tunnel not running
+2. Ingress controller not accessible on 192.168.49.2:80
+3. Wrong Host header configuration
+
+**Resolution:**
+```bash
+# Check CloudFlare Tunnel status
+ps aux | grep cloudflared
+
+# Restart tunnel if needed
+pkill cloudflared
+/usr/local/bin/cloudflared tunnel \
+  --config ~/.cloudflared/config.yml \
+  --no-autoupdate run <tunnel-id> &
+
+# Test local Ingress
+curl -H "Host: llm.blockchainradar.xyz" http://192.168.49.2/health
+```
+
+---
+
+## Performance Tuning
+
+### vLLM Optimization
+
+Adjust GPU memory utilization:
+```yaml
+args:
+  - --gpu-memory-utilization=0.8  # Increase from 0.5
+```
+
+Adjust batch size:
+```yaml
+args:
+  - --max-num-seqs=128  # Default: 256
+```
+
+### Embedding Service Optimization
+
+Increase batch size:
+```yaml
+env:
+  - name: MAX_BATCH_SIZE
+    value: "64"  # Increase from 32
+```
+
+---
+
+## Maintenance
+
+### Updating InferenceServices
 
 ```bash
-# Reduce resource requests
-# Edit InferenceService and lower memory limits
+# Edit manifest
+vim vllm-qwen-inference.yaml
 
-# Or increase minikube memory
-minikube stop
-minikube start --memory=16384
+# Apply changes
+kubectl --context=minikube apply -f vllm-qwen-inference.yaml
+
+# Watch rollout
+kubectl --context=minikube get pods -n kserve -w
 ```
 
-## Monitoring
+### Scaling
 
-### Check Resource Usage
+KServe automatically scales based on traffic (scale-to-zero enabled by default).
 
-```bash
-# Node resources
-kubectl top node
-
-# Pod resources
-kubectl top pods -n intellirag
-
-# GPU usage (from pod)
-kubectl exec -n intellirag <pod-name> -- nvidia-smi
+**Disable scale-to-zero:**
+```yaml
+metadata:
+  annotations:
+    autoscaling.knative.dev/min-scale: "1"
 ```
 
-### View Logs
+---
 
-```bash
-# vLLM logs
-kubectl logs -n intellirag -l serving.kserve.io/inferenceservice=vllm-qwen -f
+## Related Documentation
 
-# Embedding logs
-kubectl logs -n intellirag -l serving.kserve.io/inferenceservice=embedding-bge-m3 -f
-```
+- [Ingress + CloudFlare Tunnel Setup](../../docs/architecture/ingress-cloudflare-tunnel-setup.md)
+- [Migration Summary](../../docs/summaries/2025-11-23-ingress-migration-summary.md)
+- [Phase 2 Model Serving](../../docs/plans/phase-2-model-serving.md)
 
-## Integration with IntelliRAG
+---
 
-Update your IntelliRAG configuration to use KServe endpoints:
+## Important Notes
 
-```bash
-# Set environment variables
-export VLLM_BASE_URL=http://localhost:8000/v1
-export VLLM_MODEL=Qwen/Qwen3-0.6B
-export EMBEDDING_SERVICE_URL=http://localhost:8001
-export EMBEDDING_USE_REMOTE=true
+1. **Do NOT use port-forwards in production** - They are brittle and die when pods restart
+2. **Always use the Ingress** - It provides self-healing, stable endpoints
+3. **Host header is critical** - The `upstream-vhost` annotation must be set for Knative routing
+4. **GPU resources** - Ensure GPU is available before deploying vLLM service
+5. **CloudFlare Tunnel** - Must be restarted after config changes
 
-# Run IntelliRAG
-uvicorn app.main:app --reload
-```
+---
 
-Or create `.env.kserve`:
+## Success Criteria
 
-```bash
-VLLM_BASE_URL=http://localhost:8000/v1
-VLLM_MODEL=Qwen/Qwen3-0.6B
-EMBEDDING_SERVICE_URL=http://localhost:8001
-EMBEDDING_USE_REMOTE=true
-QDRANT_URL=http://localhost:6333
-```
-
-## Cleanup
-
-```bash
-# Delete InferenceServices
-kubectl delete -f .
-
-# Or delete entire namespace
-kubectl delete namespace intellirag
-```
-
-## Next Steps
-
-- Set up monitoring with Prometheus
-- Configure proper ingress for production
-- Test autoscaling behavior
-- Benchmark performance vs Docker Compose
-- Prepare for GKE deployment
-
-## References
-
-- [Full Setup Guide](../../docs/deployment/local-kserve-setup-guide.md)
-- [KServe Documentation](https://kserve.github.io/website/)
-- [vLLM Documentation](https://docs.vllm.ai/)
-
+- ✅ InferenceServices show `READY=True`
+- ✅ Ingress has ADDRESS assigned (192.168.49.2)
+- ✅ Local curls return 200 OK
+- ✅ CloudFlare Tunnel endpoints return 200 OK
+- ✅ No port-forward processes running

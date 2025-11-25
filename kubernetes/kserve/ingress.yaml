@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kserve-ingress
+  namespace: kserve
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/upstream-vhost: "$service_name.$namespace.svc.cluster.local"
+spec:
+  ingressClassName: nginx
+  rules:
+  # vLLM Service
+  - host: llm.blockchainradar.xyz
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vllm-qwen-predictor-00005
+            port:
+              number: 80
+  # Embedding Service
+  - host: embed.blockchainradar.xyz
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: embedding-service-predictor-00004
+            port:
+              number: 80
