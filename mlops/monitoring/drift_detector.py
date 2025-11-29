@@ -54,12 +54,14 @@ class DriftDetector:
             DataSummaryPreset()
         ])
 
-        report.run(
+        # Run report and get snapshot (Evidently v0.7.17 API)
+        snapshot = report.run(
             reference_data=reference_data,
             current_data=current_data
         )
 
-        results = report.as_dict()
+        # Get results dict from snapshot
+        results = snapshot.dict()
 
         with mlflow.start_run(run_name=f"drift-detection-{datetime.now().isoformat()}"):
             mlflow.log_param("reference_size", len(reference_data))
@@ -73,7 +75,7 @@ class DriftDetector:
             DRIFT_DETECTION_TIMESTAMP.set(datetime.now().timestamp())
 
             report_path = f"drift_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-            report.save_html(report_path)
+            snapshot.save_html(report_path)
             mlflow.log_artifact(report_path)
 
             # Clean up local report file
