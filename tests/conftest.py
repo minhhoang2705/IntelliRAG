@@ -2,6 +2,31 @@
 
 import pytest
 from pathlib import Path
+import os
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_plotly_config():
+    """Create Plotly config directory for Evidently tests.
+
+    Evidently uses Plotly for visualizations, which requires a .plotly
+    directory with a .config file. This fixture ensures the directory
+    exists before any tests run.
+    """
+    plotly_dir = Path.home() / ".plotly"
+    config_file = plotly_dir / ".config"
+
+    # Create directory if it doesn't exist
+    if not plotly_dir.exists():
+        plotly_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create config file with default settings if it doesn't exist
+    if not config_file.exists():
+        config_file.write_text('{"plotly_domain": "https://plot.ly"}')
+
+    yield
+
+    # Cleanup is optional - leaving .plotly directory doesn't hurt
 
 
 @pytest.fixture
