@@ -60,7 +60,6 @@ class TestVectorDBHybridOperations:
         RED Phase: Will fail because search_vectors_hybrid method doesn't exist.
         """
         from app.services.vectordb import VectorDBService
-        from qdrant_client.models import ScoredPoint
         
         service = VectorDBService(url="http://localhost:6333")
         

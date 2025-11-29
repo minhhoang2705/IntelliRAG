@@ -11,7 +11,6 @@ import pytest
 import pytest_asyncio
 import asyncio
 import requests
-import time
 import os
 from dotenv import load_dotenv
 

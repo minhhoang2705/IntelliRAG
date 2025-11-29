@@ -15,7 +15,6 @@ Date: 2025-11-04
 import pytest
 import httpx
 import time
-from typing import List
 
 
 # Test configuration

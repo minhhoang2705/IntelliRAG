@@ -5,7 +5,6 @@ This module tests the tracing configuration for distributed tracing.
 Date: 2025-11-05
 """
 
-import pytest
 
 
 class TestTracingSetup:

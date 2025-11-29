@@ -15,7 +15,6 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Optional
 import logging
 import time
-import torch
 import os
 from huggingface_hub import login  
 from dotenv import load_dotenv

@@ -6,7 +6,7 @@ replicaCount: 2
 image:
   repository: gcr.io/intellirag-aide1-capstone/intellirag-api
   pullPolicy: Always
-  tag: "v1.0.8"
+  tag: "v1.0.9"
 
 imagePullSecrets: []
 nameOverride: ""

@@ -6,7 +6,7 @@ Date: 2025-10-30
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 
 class TestOrchestratorMetrics:
@@ -20,7 +20,6 @@ class TestOrchestratorMetrics:
         RED: This should FAIL as metrics not instrumented yet.
         """
         from app.services.orchestrator import OrchestratorService
-        from app.services.job_state import JobStateManager
 
         orchestrator = OrchestratorService()
 

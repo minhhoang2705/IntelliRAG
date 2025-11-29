@@ -1,6 +1,5 @@
 """Test QueryClassificationSchema has required fields."""
 
-import pytest
 
 
 def test_classification_schema_has_confidence_field():

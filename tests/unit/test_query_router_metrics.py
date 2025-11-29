@@ -1,7 +1,5 @@
 """Unit tests for Query Router metrics collection."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 
 
 def test_query_classification_metrics_exist():

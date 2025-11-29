@@ -8,7 +8,7 @@ import pytest
 import asyncio
 import time
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
@@ -316,7 +316,6 @@ class TestAsyncBackgroundProcessing:
         Expected: Job transitions PENDING → PROCESSING → COMPLETED
         """
         from app.main import app
-        from app.services.job_state import JobStatus
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 # Start ingestion

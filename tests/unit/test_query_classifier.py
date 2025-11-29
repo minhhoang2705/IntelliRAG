@@ -5,7 +5,7 @@ classification for routing queries to appropriate handlers.
 """
 
 import pytest
-from app.services.query_router import QueryClassifier, QueryType, QueryClassification
+from app.services.query_router import QueryClassifier, QueryType
 
 
 class TestQueryClassifierInit:

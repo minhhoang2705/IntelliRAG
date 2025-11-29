@@ -8,7 +8,7 @@ Date: 2025-10-17
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 
 @pytest.mark.asyncio

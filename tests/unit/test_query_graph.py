@@ -5,7 +5,6 @@ based on classification results.
 """
 
 import pytest
-from typing import Optional, List
 
 
 class TestQueryGraphBuilding:
@@ -344,7 +343,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_rag_flow(self):
         """Test complete RAG flow: classify → retrieve → generate → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock, MagicMock
 
@@ -396,7 +395,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_direct_flow(self):
         """Test complete DIRECT flow: classify → generate → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock
 
@@ -441,7 +440,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_clarification_flow(self):
         """Test complete CLARIFICATION flow: classify → clarify → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock
 
@@ -481,7 +480,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_multi_hop_flow(self):
         """Test complete MULTI_HOP flow: classify → retrieve → generate → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock, MagicMock
 

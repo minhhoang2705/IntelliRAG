@@ -19,15 +19,13 @@ locust -f locustfile.py --host https://intellirag.example.com
 
 import sys
 import os
-from locust import HttpUser, TaskSet, task, between, events
+from locust import HttpUser, between, events
 from locust.runners import MasterRunner, WorkerRunner
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
-from tasks.rag_tasks import RAGQueryTaskSet, HighVolumeRAGTaskSet, ReadOnlyTaskSet
-from users.normal_user import NormalRAGUser, CasualUser, PowerUser
-from users.stress_user import StressTestUser, BurstUser, SpikeUser, SustainedLoadUser
+from tasks.rag_tasks import RAGQueryTaskSet, HighVolumeRAGTaskSet
 
 
 # Default test configuration

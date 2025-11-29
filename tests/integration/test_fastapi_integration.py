@@ -9,7 +9,6 @@ Date: 2025-10-18
 
 import pytest
 from fastapi.testclient import TestClient
-import uuid
 
 
 @pytest.mark.integration

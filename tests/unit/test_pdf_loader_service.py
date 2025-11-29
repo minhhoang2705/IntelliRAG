@@ -10,7 +10,7 @@ Date: 2025-10-25
 
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from langchain_core.documents import Document
 
 

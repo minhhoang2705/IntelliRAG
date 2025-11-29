@@ -9,7 +9,7 @@ Updated: 2025-10-29 - Full production-ready tests (TDD RED phase)
 import pytest
 from httpx import ASGITransport, AsyncClient
 from io import BytesIO
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 
 class TestUploadEndpoint:

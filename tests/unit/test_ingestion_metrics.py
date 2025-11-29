@@ -4,7 +4,6 @@ Tests verify that all required metrics are defined with correct types,
 labels, and buckets for monitoring the document ingestion pipeline.
 """
 
-import pytest
 from prometheus_client import Counter, Gauge, Histogram
 
 

@@ -43,6 +43,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=appuser:appuser app/ /app/app/
+COPY --chown=appuser:appuser mlops/ /app/mlops/
 COPY --chown=appuser:appuser observability/ /app/observability/
 
 # Switch to non-root user

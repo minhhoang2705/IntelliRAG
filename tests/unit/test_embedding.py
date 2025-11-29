@@ -185,7 +185,6 @@ def test_embedding_service_embed_single_consistent_output(mocker):
     """Test embed_single produces consistent embeddings for same input."""
     from app.services.embedding import EmbeddingService
     from unittest.mock import Mock
-    import numpy as np
 
     # Make mock return SAME consistent vector every time
     consistent_vec = np.array([0.1] * 1024)
@@ -212,7 +211,6 @@ def test_embedding_service_embed_single_consistent_output(mocker):
 def test_embedding_service_embed_single_different_inputs(mocker, mock_sentence_transformer):
     """Test embed_single produces different embeddings for different inputs."""
     from app.services.embedding import EmbeddingService
-    import numpy as np
 
     # Make mock return different vectors for each call
     call_count = [0]
@@ -254,7 +252,6 @@ def test_embedding_service_embed_batch_returns_vectors(mocker, mock_sentence_tra
 def test_embedding_service_embed_batch_with_gpu():
     """Test batch embedding with GPU acceleration."""
     from app.services.embedding import EmbeddingService
-    import torch
 
     service = EmbeddingService(device="cpu")  # Start on CPU
 
@@ -288,7 +285,6 @@ def test_embedding_service_embed_batch_respects_max_batch_size(mocker, mock_sent
 def test_embedding_service_embed_batch_normalizes(mocker, mock_sentence_transformer):
     """Test batch embedding can normalize vectors."""
     from app.services.embedding import EmbeddingService
-    import numpy as np
 
     mocker.patch('app.services.embedding.SentenceTransformer', return_value=mock_sentence_transformer)
     service = EmbeddingService()

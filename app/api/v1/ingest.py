@@ -5,11 +5,11 @@ Uses FastAPI's BackgroundTasks for non-blocking async processing.
 """
 
 import logging
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
 from app.models.schemas import IngestResponse, IngestStatusResponse, IngestRequest
 from app.services.job_state import JobStatus
 from app.api.middleware.metrics import ingestion_jobs_total, ingestion_jobs_active
+from app.api.middleware.auth import verify_api_key
 from app.utils import extract_file_extension
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,8 @@ router = APIRouter()
 @router.post("/api/v1/ingest", response_model=IngestResponse, status_code=202)
 async def ingest_document(
     request: IngestRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    api_key: str = Depends(verify_api_key)
 ) -> IngestResponse:
     """Trigger async document ingestion.
     
@@ -79,7 +80,10 @@ async def ingest_document(
 
 
 @router.get("/api/v1/ingest/status/{job_id}", response_model=IngestStatusResponse)
-async def get_ingest_status(job_id: str) -> IngestStatusResponse:
+async def get_ingest_status(
+    job_id: str,
+    api_key: str = Depends(verify_api_key)
+) -> IngestStatusResponse:
     """Get status of ingestion job.
     
     Args:

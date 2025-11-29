@@ -11,10 +11,11 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from app.models.schemas import UploadResponse
 from app.services.gcs_storage import GCSStorageService
 from app.api.middleware.metrics import file_upload_duration_seconds, file_upload_size_bytes
+from app.api.middleware.auth import verify_api_key
 from app.utils import extract_file_extension
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,8 @@ gcs_storage = GCSStorageService(
 @router.post("/api/v1/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    collection_name: str = Form(...)
+    collection_name: str = Form(...),
+    api_key: str = Depends(verify_api_key)
 ) -> UploadResponse:
     """Upload file to GCS for later ingestion.
 

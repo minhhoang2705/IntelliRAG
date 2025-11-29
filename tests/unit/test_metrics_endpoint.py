@@ -1,6 +1,5 @@
 """Unit tests for Prometheus metrics endpoint."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 

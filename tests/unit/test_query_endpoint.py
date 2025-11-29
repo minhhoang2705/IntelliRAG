@@ -1,7 +1,7 @@
 """Unit tests for FastAPI query endpoint."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
@@ -45,7 +45,7 @@ async def test_query_endpoint_returns_classification():
 @pytest.mark.asyncio
 async def test_query_endpoint_calls_orchestrator_without_use_rag():
     """Test that query endpoint doesn't pass use_rag to orchestrator."""
-    from unittest.mock import AsyncMock, patch, call
+    from unittest.mock import AsyncMock, patch
     from fastapi.testclient import TestClient
     from app.services.query_router.classifier import QueryType, QueryClassification
     

@@ -4,7 +4,6 @@
 Date: 2025-10-20
 """
 
-import pytest
 import os
 from unittest.mock import patch
 

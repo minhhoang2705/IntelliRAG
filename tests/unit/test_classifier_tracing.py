@@ -16,7 +16,7 @@ class TestClassifierTracing:
     async def test_classify_creates_span(self):
         """Test that classify method creates a tracing span."""
         # RED: Will fail because span not created
-        from app.services.query_router.classifier import QueryClassifier, QueryClassification, QueryType
+        from app.services.query_router.classifier import QueryClassifier
 
         # Mock the LLM client
         mock_llm = AsyncMock()
