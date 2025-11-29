@@ -262,26 +262,22 @@ class TestDriftDetector:
     def test_detect_drift_basic(self, drift_detector):
         """Test basic drift detection."""
         # Arrange
-        from evidently import ColumnMapping
-        
+        # Evidently v0.7.17 auto-detects column types from DataFrame
         reference_data = pd.DataFrame({
             "query_length": [50, 60, 55] * 10,
             "num_keywords": [3, 4, 3] * 10
         })
-        
+
         current_data = pd.DataFrame({
             "query_length": [80, 90, 85] * 10,
             "num_keywords": [5, 6, 5] * 10
         })
-        
-        column_mapping = ColumnMapping()
-        column_mapping.numerical_features = ["query_length", "num_keywords"]
-        
+
         # Mock MLFlow and Prometheus
         with patch('mlflow.start_run') as mock_run:
             mock_run.return_value.__enter__ = MagicMock()
             mock_run.return_value.__exit__ = MagicMock()
-            
+
             with patch('mlflow.log_param'):
                 with patch('mlflow.log_metric'):
                     with patch('mlflow.log_artifact'):
@@ -292,10 +288,9 @@ class TestDriftDetector:
                                         # Act
                                         result = drift_detector.detect_drift(
                                             reference_data,
-                                            current_data,
-                                            column_mapping
+                                            current_data
                                         )
-                                        
+
                                         # Assert
                                         assert result is not None
                                         assert "metrics" in result
