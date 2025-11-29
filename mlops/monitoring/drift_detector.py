@@ -2,7 +2,7 @@
 Data drift monitoring using Evidently.
 Tracks input distribution shifts and model performance degradation.
 """
-from evidently import ColumnMapping
+from evidently.pipeline.column_mapping import ColumnMapping
 from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset, DataQualityPreset
 import pandas as pd
