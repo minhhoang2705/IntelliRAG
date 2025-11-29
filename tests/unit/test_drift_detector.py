@@ -86,18 +86,24 @@ class TestDriftDetector:
         with patch('mlflow.start_run') as mock_run:
             mock_run.return_value.__enter__ = MagicMock()
             mock_run.return_value.__exit__ = MagicMock()
-            
-            with patch('mlops.monitoring.drift_detector.DRIFT_SHARE_METRIC'):
-                with patch('mlops.monitoring.drift_detector.DRIFT_DETECTION_TIMESTAMP'):
-                    # Act
-                    result = await drift_detector.monitor_query_patterns(
-                        lookback_days=7,
-                        use_mock_data=True
-                    )
-                    
-                    # Assert
-                    assert result is not None
-                    assert "metrics" in result
+
+            with patch('mlflow.log_param'):
+                with patch('mlflow.log_metric'):
+                    with patch('mlflow.log_artifact'):
+                        with patch('mlops.monitoring.drift_detector.DRIFT_SHARE_METRIC'):
+                            with patch('mlops.monitoring.drift_detector.DRIFT_DETECTION_TIMESTAMP'):
+                                with patch('evidently.core.report.Snapshot.save_html'):
+                                    with patch('os.path.exists', return_value=True):
+                                        with patch('os.remove'):
+                                            # Act
+                                            result = await drift_detector.monitor_query_patterns(
+                                                lookback_days=7,
+                                                use_mock_data=True
+                                            )
+
+                                            # Assert
+                                            assert result is not None
+                                            assert "metrics" in result
 
     async def test_fetch_real_query_data_success(
         self,
@@ -203,21 +209,24 @@ class TestDriftDetector:
                 return_value=MagicMock(info=MagicMock(run_id="test123"))
             )
             mock_run.return_value.__exit__ = MagicMock()
-            
+
             with patch('mlflow.log_param'):
                 with patch('mlflow.log_metric'):
                     with patch('mlflow.log_artifact'):
                         with patch('mlops.monitoring.drift_detector.DRIFT_SHARE_METRIC'):
                             with patch('mlops.monitoring.drift_detector.DRIFT_DETECTION_TIMESTAMP'):
-                                # Act
-                                result = await drift_detector.monitor_query_patterns(
-                                    lookback_days=7,
-                                    use_mock_data=False
-                                )
-                                
-                                # Assert
-                                assert result is not None
-                                assert "metrics" in result
+                                with patch('evidently.core.report.Snapshot.save_html'):
+                                    with patch('os.path.exists', return_value=True):
+                                        with patch('os.remove'):
+                                            # Act
+                                            result = await drift_detector.monitor_query_patterns(
+                                                lookback_days=7,
+                                                use_mock_data=False
+                                            )
+
+                                            # Assert
+                                            assert result is not None
+                                            assert "metrics" in result
 
     def test_get_mock_reference_data(self, drift_detector):
         """Test mock reference data generation."""
@@ -273,7 +282,7 @@ class TestDriftDetector:
             "num_keywords": [5, 6, 5] * 10
         })
 
-        # Mock MLFlow and Prometheus
+        # Mock MLFlow, Prometheus, and Evidently HTML saving
         with patch('mlflow.start_run') as mock_run:
             mock_run.return_value.__enter__ = MagicMock()
             mock_run.return_value.__exit__ = MagicMock()
@@ -283,18 +292,20 @@ class TestDriftDetector:
                     with patch('mlflow.log_artifact'):
                         with patch('mlops.monitoring.drift_detector.DRIFT_SHARE_METRIC'):
                             with patch('mlops.monitoring.drift_detector.DRIFT_DETECTION_TIMESTAMP'):
-                                with patch('os.path.exists', return_value=True):
-                                    with patch('os.remove'):
-                                        # Act
-                                        result = drift_detector.detect_drift(
-                                            reference_data,
-                                            current_data
-                                        )
+                                # Mock the snapshot's save_html method to prevent Plotly config error
+                                with patch('evidently.core.report.Snapshot.save_html'):
+                                    with patch('os.path.exists', return_value=True):
+                                        with patch('os.remove'):
+                                            # Act
+                                            result = drift_detector.detect_drift(
+                                                reference_data,
+                                                current_data
+                                            )
 
-                                        # Assert
-                                        assert result is not None
-                                        assert "metrics" in result
-                                        assert len(result["metrics"]) > 0
+                                            # Assert
+                                            assert result is not None
+                                            assert "metrics" in result
+                                            assert len(result["metrics"]) > 0
 
     async def test_monitor_query_patterns_uses_mock_when_no_logger(self):
         """Test that mock data is used when query_logger is None."""
@@ -309,21 +320,24 @@ class TestDriftDetector:
         with patch('mlflow.start_run') as mock_run:
             mock_run.return_value.__enter__ = MagicMock()
             mock_run.return_value.__exit__ = MagicMock()
-            
+
             with patch('mlflow.log_param'):
                 with patch('mlflow.log_metric'):
                     with patch('mlflow.log_artifact'):
                         with patch('mlops.monitoring.drift_detector.DRIFT_SHARE_METRIC'):
                             with patch('mlops.monitoring.drift_detector.DRIFT_DETECTION_TIMESTAMP'):
-                                # Act
-                                result = await detector.monitor_query_patterns(
-                                    lookback_days=7,
-                                    use_mock_data=False  # Should fall back to mock
-                                )
-                                
-                                # Assert
-                                assert result is not None
-                                assert "metrics" in result
+                                with patch('evidently.core.report.Snapshot.save_html'):
+                                    with patch('os.path.exists', return_value=True):
+                                        with patch('os.remove'):
+                                            # Act
+                                            result = await detector.monitor_query_patterns(
+                                                lookback_days=7,
+                                                use_mock_data=False  # Should fall back to mock
+                                            )
+
+                                            # Assert
+                                            assert result is not None
+                                            assert "metrics" in result
 
     async def test_fetch_real_query_data_date_calculation(
         self,
