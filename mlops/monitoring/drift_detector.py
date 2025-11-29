@@ -82,7 +82,7 @@ class DriftDetector:
             if os.path.exists(report_path):
                 os.remove(report_path)
 
-        logger.info(f"Drift detection complete. Drift share: {drift_share:.2%}")
+            logger.info(f"Drift detection complete. Drift share: {drift_share:.2%}")
 
         return results
 
