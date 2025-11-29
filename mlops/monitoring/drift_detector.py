@@ -3,7 +3,7 @@ Data drift monitoring using Evidently.
 Tracks input distribution shifts and model performance degradation.
 """
 from evidently import Report
-from evidently.metric_preset import DataDriftPreset, DataQualityPreset
+from evidently.presets import DataDriftPreset, DataSummaryPreset
 import pandas as pd
 import mlflow
 from typing import Dict, Optional
@@ -51,7 +51,7 @@ class DriftDetector:
         """
         report = Report(metrics=[
             DataDriftPreset(),
-            DataQualityPreset()
+            DataSummaryPreset()
         ])
 
         report.run(
