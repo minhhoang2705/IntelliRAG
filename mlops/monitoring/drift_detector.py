@@ -2,14 +2,7 @@
 Data drift monitoring using Evidently.
 Tracks input distribution shifts and model performance degradation.
 """
-try:
-    # Try newer Evidently API (>=0.4.0)
-    from evidently import ColumnMapping
-except ImportError:
-    # Fall back to older API
-    from evidently.model_profile.sections.base_profile_section import ColumnMapping
-
-from evidently.report import Report
+from evidently import Report
 from evidently.metric_preset import DataDriftPreset, DataQualityPreset
 import pandas as pd
 import mlflow
@@ -44,8 +37,7 @@ class DriftDetector:
     def detect_drift(
         self,
         reference_data: pd.DataFrame,
-        current_data: pd.DataFrame,
-        column_mapping: ColumnMapping
+        current_data: pd.DataFrame
     ) -> Dict:
         """
         Detect data drift between reference and current data.
@@ -53,7 +45,6 @@ class DriftDetector:
         Args:
             reference_data: Historical/baseline data
             current_data: Recent data
-            column_mapping: Evidently column mapping
 
         Returns:
             Dict with drift detection results
@@ -65,8 +56,7 @@ class DriftDetector:
 
         report.run(
             reference_data=reference_data,
-            current_data=current_data,
-            column_mapping=column_mapping
+            current_data=current_data
         )
 
         results = report.as_dict()
@@ -125,15 +115,18 @@ class DriftDetector:
             logger.warning("Insufficient data for drift detection")
             return {"status": "insufficient_data"}
 
-        column_mapping = ColumnMapping()
-        column_mapping.numerical_features = [
+        # Evidently v0.7.17 auto-detects column types from DataFrame
+        # Ensure only numerical features are included
+        numerical_features = [
             "query_length",
             "num_keywords",
             "response_time_ms",
             "sources_count"
         ]
+        reference_data = reference_data[numerical_features]
+        current_data = current_data[numerical_features]
 
-        return self.detect_drift(reference_data, current_data, column_mapping)
+        return self.detect_drift(reference_data, current_data)
 
     async def _fetch_real_query_data(
         self,
