@@ -104,14 +104,26 @@ Add each of the following secrets one by one:
 
 ---
 
-#### Secret 7: CLOUDFLARE_TUNNEL_URL
+#### Secret 7: VLLM_BASE_URL
 
-**Purpose**: CloudFlare Tunnel URL for local GPU server access
+**Purpose**: vLLM inference endpoint URL (local GPU server via CloudFlare Tunnel)
 
 **Steps**:
 1. Click **New repository secret**
-2. Name: `CLOUDFLARE_TUNNEL_URL`
-3. Secret: `https://gpu.intellirag.example.com`
+2. Name: `VLLM_BASE_URL`
+3. Secret: `https://llm.blockchainradar.xyz`
+4. Click **Add secret**
+
+---
+
+#### Secret 8: EMBEDDING_SERVICE_URL
+
+**Purpose**: Embedding service endpoint URL (local GPU server via CloudFlare Tunnel)
+
+**Steps**:
+1. Click **New repository secret**
+2. Name: `EMBEDDING_SERVICE_URL`
+3. Secret: `https://embed.blockchainradar.xyz`
 4. Click **Add secret**
 
 ---
@@ -121,14 +133,15 @@ Add each of the following secrets one by one:
 After adding all secrets, you should see:
 
 ```
-Repository secrets (7)
+Repository secrets (8)
 ├── GCP_SA_KEY
 ├── GCP_PROJECT_ID
 ├── GKE_CLUSTER
 ├── GKE_REGION
 ├── DOCKER_REGISTRY
 ├── MLFLOW_TRACKING_URI
-└── CLOUDFLARE_TUNNEL_URL
+├── VLLM_BASE_URL
+└── EMBEDDING_SERVICE_URL
 ```
 
 ---
