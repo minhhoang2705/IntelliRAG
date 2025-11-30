@@ -4,6 +4,7 @@ Tests the complete flow: Upload → Ingest → Status Polling → Query
 Uses real GCS bucket configured in .env.test
 
 Date: 2025-10-30
+Updated: 2025-11-30 - Refactored to use async gcloud-aio-storage library
 """
 
 import pytest
@@ -11,7 +12,7 @@ import asyncio
 import os
 from pathlib import Path
 from httpx import AsyncClient, ASGITransport
-from google.cloud import storage
+from gcloud.aio.storage import Storage
 
 
 @pytest.fixture(scope="session")
@@ -32,17 +33,31 @@ def gcs_config():
 
 
 @pytest.fixture(scope="session")
-def gcs_client(gcs_config):
-    """Create GCS client with service account credentials."""
-    return storage.Client.from_service_account_json(
-        gcs_config["credentials_path"],
-        project=gcs_config["project_id"]
-    )
+async def gcs_client(gcs_config):
+    """Create async GCS client with service account credentials.
+
+    Uses gcloud-aio-storage for async operations, matching app architecture.
+    """
+    client = Storage(service_file=gcs_config["credentials_path"])
+
+    # Verify connection and bucket exists
+    try:
+        await client.get_bucket(gcs_config["bucket_name"])
+    except Exception as e:
+        pytest.skip(f"Cannot access GCS bucket: {e}")
+
+    yield client
+
+    # Cleanup: close client session
+    await client.close()
 
 
 @pytest.fixture(scope="function")
-def cleanup_gcs_files(gcs_client, gcs_config):
-    """Cleanup test files from GCS after each test."""
+async def cleanup_gcs_files(gcs_client, gcs_config):
+    """Cleanup test files from GCS after each test.
+
+    Async version using gcloud-aio-storage delete operations.
+    """
     files_to_cleanup = []
 
     def register(blob_name):
@@ -50,12 +65,13 @@ def cleanup_gcs_files(gcs_client, gcs_config):
 
     yield register
 
-    # Cleanup after test
-    bucket = gcs_client.bucket(gcs_config["bucket_name"])
+    # Cleanup after test (async operations)
     for blob_name in files_to_cleanup:
         try:
-            blob = bucket.blob(blob_name)
-            blob.delete()
+            await gcs_client.delete(
+                bucket=gcs_config["bucket_name"],
+                object_name=blob_name
+            )
         except Exception as e:
             print(f"Warning: Could not delete {blob_name}: {e}")
 
@@ -92,7 +108,7 @@ class TestIngestionPipelineIntegration:
 
         Expected: Full pipeline succeeds, metrics recorded
         RED: This should FAIL as pipeline not fully integrated yet.
-        
+
         Note: First run may take 3-5 minutes due to embedding model download/loading (560MB).
         """
         from app.main import app
@@ -158,7 +174,7 @@ class TestIngestionPipelineIntegration:
                 if final_status == "completed":
                     print(f"✅ Job completed in {int(elapsed_time)} seconds")
                     break
-                    
+
                 if final_status == "failed":
                     error = status_data.get("error", "Unknown error")
                     print(f"❌ Job failed: {error}")
@@ -167,7 +183,7 @@ class TestIngestionPipelineIntegration:
                 # Wait with exponential backoff
                 await asyncio.sleep(poll_interval)
                 elapsed_time += poll_interval
-                
+
                 # Increase poll interval gradually (exponential backoff)
                 poll_interval = min(poll_interval * 1.2, max_poll_interval)
 
@@ -179,7 +195,7 @@ class TestIngestionPipelineIntegration:
                     f"Final status: {final_status}, Progress: {status_data.get('progress')}%, "
                     f"Message: {status_data.get('message')}, Error: {error_detail}"
                 )
-            
+
             assert status_data.get("progress") == 100, "Progress should be 100% on completion"
 
             # Step 5: Verify chunks were created
