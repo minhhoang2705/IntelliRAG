@@ -129,19 +129,21 @@ class TestOrchestratorMetrics:
             with patch.object(orchestrator.gcs_loader, "load_file", new=AsyncMock(return_value=[])):
                 with patch.object(orchestrator.semantic_chunker, "chunk_documents", new=AsyncMock(return_value=[])):
                     with patch.object(orchestrator.embedding_service, "embed_batch", return_value=[]):
-                        with patch.object(orchestrator.vectordb_service, "upsert_vectors", new=AsyncMock()):
-                            try:
-                                await orchestrator.ingest(
-                                    file_path="gs://bucket/test.pdf",
-                                    collection_name="test"
-                                )
-                            except:
-                                pass
+                        with patch.object(orchestrator.embedding_service, "get_embedding_dimension", return_value=1024):
+                            with patch.object(orchestrator.vectordb_service, "upsert_vectors", new=AsyncMock()):
+                                with patch.object(orchestrator.vectordb_service, "ensure_collection_with_dimension", new=AsyncMock(return_value={"action": "exists", "dimension": 1024})):
+                                    try:
+                                        await orchestrator.ingest(
+                                            file_path="gs://bucket/test.pdf",
+                                            collection_name="test"
+                                        )
+                                    except:
+                                        pass
 
-                            # Verify storage stage duration
-                            calls = mock_duration.labels.call_args_list
-                            storage_calls = [c for c in calls if c[1].get('stage') == 'storage']
-                            assert len(storage_calls) > 0, "Should record storage stage duration"
+                                    # Verify storage stage duration
+                                    calls = mock_duration.labels.call_args_list
+                                    storage_calls = [c for c in calls if c[1].get('stage') == 'storage']
+                                    assert len(storage_calls) > 0, "Should record storage stage duration"
 
 
 class TestIngestionJobDurationMetric:
@@ -150,7 +152,7 @@ class TestIngestionJobDurationMetric:
     @pytest.mark.asyncio
     async def test_records_total_job_duration_on_success(self, mocker):
         """Test that successful ingestion records total job duration.
-        
+
         Expected: ingestion_job_duration_seconds histogram records duration
         with status='completed' and correct file_type label.
         """
@@ -167,8 +169,12 @@ class TestIngestionJobDurationMetric:
                             'chunk_documents', AsyncMock(return_value=[Document(page_content="chunk")]))
         mocker.patch.object(orchestrator.embedding_service,
                             'embed_batch', return_value=[[0.1, 0.2]])
+        mocker.patch.object(orchestrator.embedding_service,
+                            'get_embedding_dimension', return_value=1024)
         mocker.patch.object(orchestrator.vectordb_service,
                             'upsert_vectors', AsyncMock())
+        mocker.patch.object(orchestrator.vectordb_service,
+                            'ensure_collection_with_dimension', AsyncMock(return_value={"action": "exists", "dimension": 1024}))
 
         # Get initial sample count
         initial_samples = list(ingestion_job_duration_seconds.collect())[0].samples

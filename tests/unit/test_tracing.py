@@ -5,6 +5,19 @@ This module tests the tracing configuration for distributed tracing.
 Date: 2025-11-05
 """
 
+import pytest
+from unittest.mock import Mock
+
+
+@pytest.fixture(autouse=True)
+def cleanup_global_tracer():
+    """Clean up global tracer provider after each test to prevent pollution."""
+    yield
+    # Reset global tracer provider after test
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    # Set a real TracerProvider to avoid Mock leaking into other tests
+    trace.set_tracer_provider(TracerProvider())
 
 
 class TestTracingSetup:

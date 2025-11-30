@@ -187,13 +187,15 @@ class TestSettings:
     def test_gcs_configuration_defaults(self):
         """Test GCS configuration default values."""
         with patch.dict(os.environ, {}, clear=True):
-            from app.config import Settings
-            test_settings = Settings()
+            # Temporarily disable .env file loading to test true defaults
+            with patch('app.config.Settings.model_config', {'env_file': None, 'env_file_encoding': 'utf-8', 'extra': 'ignore'}):
+                from app.config import Settings
+                test_settings = Settings()
 
-            assert test_settings.gcs_project_id == "intellirag-project"
-            assert test_settings.gcs_bucket_name == "intellirag-raw-documents"
-            assert test_settings.gcs_credentials_path == ""
-            assert test_settings.gcs_use_default_credentials is True
-            assert test_settings.gcs_upload_timeout == 300
-            assert test_settings.gcs_download_timeout == 300
-            assert test_settings.gcs_max_retries == 3
+                assert test_settings.gcs_project_id == "intellirag-project"
+                assert test_settings.gcs_bucket_name == "intellirag-raw-documents"
+                assert test_settings.gcs_credentials_path == ""
+                assert test_settings.gcs_use_default_credentials is True
+                assert test_settings.gcs_upload_timeout == 300
+                assert test_settings.gcs_download_timeout == 300
+                assert test_settings.gcs_max_retries == 3

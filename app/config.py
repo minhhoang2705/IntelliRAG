@@ -9,7 +9,15 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra='ignore'  # Allow undefined env vars for service-specific configs
+    )
+
+    # Note: Some environment variables (API_KEY, DEVICE, MAX_BATCH_SIZE, HF_TOKEN)
+    # are used by specific services and intentionally not declared here.
+    # These are loaded directly by their respective services.
 
     # Application
     app_name: str = "IntelliRAG"

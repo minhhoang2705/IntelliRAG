@@ -64,18 +64,18 @@ class TestQueryLoggerService:
             answer_length=450,
             query_type="factual"
         )
-        
+
         # Assert
         mock_vectordb_service.upsert_vectors.assert_called_once()
-        call_args = mock_vectordb_service.upsert_points.call_args
-        
+        call_args = mock_vectordb_service.upsert_vectors.call_args
+
         assert call_args.kwargs["collection_name"] == "query_logs"
-        points = call_args.kwargs["points"]
-        assert len(points) == 1
-        
-        payload = points[0]["payload"]
+        payloads = call_args.kwargs["payloads"]
+        assert len(payloads) == 1
+
+        payload = payloads[0]
         assert payload["query"] == "What is RAG?"
-        assert payload["query_length"] == 13
+        assert payload["query_length"] == 12
         assert payload["response_time_ms"] == 287.5
         assert payload["used_rag"] is True
         assert payload["sources_count"] == 5
@@ -87,10 +87,10 @@ class TestQueryLoggerService:
     async def test_log_query_handles_error(self, query_logger, mock_vectordb_service):
         """Test that log_query handles errors gracefully."""
         # Arrange
-        mock_vectordb_service.upsert_points = AsyncMock(
+        mock_vectordb_service.upsert_vectors = AsyncMock(
             side_effect=Exception("Qdrant error")
         )
-        
+
         # Act - should not raise exception
         await query_logger.log_query(
             query="test query",
@@ -99,7 +99,7 @@ class TestQueryLoggerService:
             sources_count=0,
             answer_length=0
         )
-        
+
         # Assert - verify error was logged but execution continued
         mock_vectordb_service.upsert_vectors.assert_called_once()
 
@@ -131,7 +131,7 @@ class TestQueryLoggerService:
         """Test fetching query logs."""
         # Arrange
         from qdrant_client.models import Record
-        
+
         mock_logs = [
             Record(
                 id="1",
@@ -153,51 +153,51 @@ class TestQueryLoggerService:
             )
         ]
         mock_vectordb_service.client.scroll = AsyncMock(return_value=(mock_logs, None))
-        
+
         # Act
         logs = await query_logger.get_query_logs(
             start_date="2025-11-27",
             end_date="2025-11-28",
             limit=100
         )
-        
+
         # Assert
         assert len(logs) == 2
         assert logs[0]["query"] == "test query 1"
         assert logs[1]["query"] == "test query 2"
-        
+
         mock_vectordb_service.client.scroll.assert_called_once()
-        call_args = mock_vectordb_service.scroll_points.call_args
+        call_args = mock_vectordb_service.client.scroll.call_args
         assert call_args.kwargs["collection_name"] == "query_logs"
         assert call_args.kwargs["limit"] == 100
 
     async def test_get_query_logs_empty_result(self, query_logger, mock_vectordb_service):
         """Test fetching query logs with no results."""
         # Arrange
-        mock_vectordb_service.scroll_points = AsyncMock(return_value=[])
-        
+        mock_vectordb_service.client.scroll = AsyncMock(return_value=([], None))
+
         # Act
         logs = await query_logger.get_query_logs(
             start_date="2025-11-27",
             end_date="2025-11-28"
         )
-        
+
         # Assert
         assert logs == []
 
     async def test_get_query_logs_handles_error(self, query_logger, mock_vectordb_service):
         """Test that get_query_logs handles errors gracefully."""
         # Arrange
-        mock_vectordb_service.scroll_points = AsyncMock(
+        mock_vectordb_service.client.scroll = AsyncMock(
             side_effect=Exception("Qdrant error")
         )
-        
+
         # Act
         logs = await query_logger.get_query_logs(
             start_date="2025-11-27",
             end_date="2025-11-28"
         )
-        
+
         # Assert
         assert logs == []
 
@@ -212,11 +212,11 @@ class TestQueryLoggerService:
             answer_length=1200,
             query_type="technical"
         )
-        
+
         # Assert
-        call_args = mock_vectordb_service.upsert_points.call_args
+        call_args = mock_vectordb_service.upsert_vectors.call_args
         payload = call_args.kwargs["payloads"][0]
-        
+
         # Verify all required fields
         required_fields = [
             "query", "query_length", "num_words", "num_keywords",
@@ -225,7 +225,7 @@ class TestQueryLoggerService:
         ]
         for field in required_fields:
             assert field in payload, f"Missing field: {field}"
-        
+
         # Verify data types
         assert isinstance(payload["query_length"], int)
         assert isinstance(payload["num_words"], int)
@@ -246,8 +246,8 @@ class TestQueryLoggerService:
             answer_length=100,
             query_type=None
         )
-        
+
         # Assert
-        call_args = mock_vectordb_service.upsert_points.call_args
+        call_args = mock_vectordb_service.upsert_vectors.call_args
         payload = call_args.kwargs["payloads"][0]
         assert payload["query_type"] == "unknown"

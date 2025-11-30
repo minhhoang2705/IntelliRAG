@@ -15,10 +15,9 @@ Test Coverage:
 Following TDD methodology: Write tests first, implement after.
 """
 
+import os
 import pytest
 import numpy as np
-
-
 import torch
 
 
@@ -249,6 +248,10 @@ def test_embedding_service_embed_batch_returns_vectors(mocker, mock_sentence_tra
 
 @pytest.mark.integration
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.skipif(
+    not os.access(os.path.expanduser("~/.cache/huggingface"), os.W_OK),
+    reason="HuggingFace cache directory not writable"
+)
 def test_embedding_service_embed_batch_with_gpu():
     """Test batch embedding with GPU acceleration."""
     from app.services.embedding import EmbeddingService
