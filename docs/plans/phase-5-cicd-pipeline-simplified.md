@@ -12,11 +12,12 @@ Streamlined CI/CD pipeline using GitHub Actions for automated testing, building,
 
 **Key Components**:
 - **Continuous Integration**: Automated testing with >80% coverage enforcement
-- **Continuous Deployment**: Automated Docker builds and Helm deployments to GKE
+- **Continuous Delivery**: Automated Docker builds with manual deployment approval
 - **Security Scanning**: Container vulnerability scanning (Trivy only)
 - **MLFlow Integration**: Model tracking and versioning in CD pipeline
 - **Rollback Mechanisms**: Automated rollback on deployment failures
 - **CloudFlare Tunnel Validation**: Health checks for hybrid architecture
+- **Manual Deployment Gate**: GitHub environment protection with required reviewers
 
 **Simplifications from Original Plan**:
 - ❌ Removed: Snyk, Bandit, Codecov, automated performance testing, model deployment automation, Slack notifications, multi-Python version matrix
@@ -29,8 +30,8 @@ Streamlined CI/CD pipeline using GitHub Actions for automated testing, building,
 
 ### Primary Goals
 1. Create GitHub Actions CI workflow for automated testing
-2. Implement CD workflow for Docker image builds and pushes
-3. Automate Helm deployments to GKE
+2. Implement CD workflow for Docker image builds and pushes (automatic)
+3. Configure manual deployment approval gate for GKE deployments
 4. Integrate Trivy security scanning
 5. Add MLFlow model tracking to CD pipeline
 6. Establish rollback mechanisms for failed deployments
@@ -38,14 +39,14 @@ Streamlined CI/CD pipeline using GitHub Actions for automated testing, building,
 
 ### Success Criteria
 - ✅ All tests run automatically on every PR
-- ✅ Coverage threshold (>80%) enforced in CI
-- ✅ Docker images built and pushed on main branch merge
+- ✅ Coverage threshold (>80%) enforced in CI (blocks build if fails)
+- ✅ Docker images built and pushed automatically when tests pass
 - ✅ Trivy scans catch critical vulnerabilities before deployment
-- ✅ Application automatically deployed to GKE after successful build
+- ✅ Manual approval required before deploying to GKE
 - ✅ CloudFlare Tunnel health validated in smoke tests
-- ✅ MLFlow tracks model versions used in deployments
+- ✅ MLFlow tracks deployments with approval metadata
 - ✅ Failed deployments trigger automatic rollback
-- ✅ Full deployment cycle completes in <10 minutes
+- ✅ Build cycle completes in <5 minutes, full deployment (after approval) in <10 minutes
 
 ---
 
@@ -191,8 +192,25 @@ jobs:
 ### 3.1 Create CD Workflow for Application
 
 **File**: `.github/workflows/cd-app.yml`
+
+**Pipeline Flow**:
+```
+Push to main (if CI passed with >80% coverage)
+     ↓
+BUILD JOB (Automatic)
+  ├─ Build Docker image
+  ├─ Push to GCR
+  └─ Trivy security scan
+     ↓
+DEPLOY JOB (Manual Approval Required) ⚠️
+  ├─ Wait for approval
+  ├─ Deploy to GKE with Helm
+  ├─ Run smoke tests
+  └─ Update MLFlow
+```
+
 ```yaml
-name: CD - Deploy Application
+name: CD - Build and Deploy Application
 
 on:
   push:
@@ -211,6 +229,9 @@ env:
   IMAGE_NAME: intellirag-api
 
 jobs:
+  # ============================================
+  # BUILD JOB - Runs automatically when tests pass
+  # ============================================
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
@@ -268,10 +289,14 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
+  # ============================================
+  # DEPLOY JOB - Requires manual approval
+  # ============================================
   deploy-to-gke:
-    name: Deploy to GKE
+    name: Deploy to GKE (Manual Approval Required)
     runs-on: ubuntu-latest
     needs: build-and-push
+    environment: production  # ← MANUAL APPROVAL CHECKPOINT
 
     steps:
     - name: Checkout code
@@ -321,8 +346,9 @@ jobs:
             mlflow.log_param('environment', 'production')
             mlflow.log_param('cluster', '${{ env.GKE_CLUSTER }}')
             mlflow.log_param('namespace', 'app')
-            mlflow.set_tag('deployment_type', 'automated')
-            mlflow.set_tag('triggered_by', '${{ github.actor }}')
+            mlflow.set_tag('deployment_type', 'manual')
+            mlflow.set_tag('approved_by', '${{ github.actor }}')
+            mlflow.set_tag('build_automatic', 'true')
         "
 
     - name: Deploy with Helm
@@ -393,7 +419,7 @@ jobs:
         client = mlflow.tracking.MlflowClient()
         runs = client.search_runs(
             experiment_ids=['0'],
-            filter_string=\"tags.deployment_type='automated'\",
+            filter_string=\"tags.deployment_type='manual'\",
             order_by=['start_time DESC'],
             max_results=1
         )
@@ -426,7 +452,7 @@ jobs:
         client = mlflow.tracking.MlflowClient()
         runs = client.search_runs(
             experiment_ids=['0'],
-            filter_string=\"tags.deployment_type='automated'\",
+            filter_string=\"tags.deployment_type='manual'\",
             order_by=['start_time DESC'],
             max_results=1
         )
@@ -437,6 +463,40 @@ jobs:
             client.set_tag(run_id, 'rollback', 'executed')
         "
 ```
+
+### 3.2 Configure GitHub Environment for Manual Approval
+
+**Required Setup Steps**:
+
+1. **Create Production Environment** in GitHub:
+   - Navigate to: Repository → Settings → Environments
+   - Click "New environment"
+   - Name: `production`
+
+2. **Configure Environment Protection Rules**:
+   - ✅ **Required reviewers**: Select 1-6 team members who can approve deployments
+   - ⏱️ **Wait timer** (optional): Add delay before deployment (e.g., 10 minutes)
+   - 🔒 **Deployment branches**: Limit to `main` branch only
+
+3. **Add Environment Secrets** (if needed):
+   - Can override repository secrets at environment level
+   - Example: Different API keys for production vs staging
+
+**How Manual Approval Works**:
+```
+1. Developer pushes to main → BUILD job runs automatically
+2. BUILD completes successfully → Docker image pushed to GCR
+3. DEPLOY job pauses → Sends notification to required reviewers
+4. Reviewer checks:
+   - Test results (>80% coverage)
+   - Security scan (no CRITICAL vulnerabilities)
+   - Build artifacts (Docker image tag)
+5. Reviewer clicks "Approve and deploy" → DEPLOY job continues
+6. Application deployed to GKE → Smoke tests run → MLFlow updated
+```
+
+**Approval UI Location**:
+- GitHub repository → Actions → [Workflow run] → Review deployments
 
 ---
 
@@ -584,19 +644,23 @@ Simplified CI/CD pipeline using GitHub Actions for automated testing, building, 
 
 ## Architecture Decisions
 
-**Simplifications Made**:
-- Single security tool (Trivy) instead of multiple overlapping scanners
-- Manual performance testing instead of automated workflow
-- Manual model deployment to local GPU server
-- GitHub native notifications instead of external services
-- Single Python version testing (deployment version only)
+**Key Design Choices**:
+- **Manual deployment gate**: Build automatic, deploy requires approval (Continuous Delivery not Deployment)
+- **Coverage enforcement**: >80% threshold blocks build, not just warns
+- **Single security tool**: Trivy only (comprehensive coverage)
+- **Manual performance testing**: On-demand instead of automated workflow
+- **Manual model deployment**: Local GPU server updates (infrequent, stable)
+- **GitHub native notifications**: Built-in Actions UI instead of external services
+- **Single Python version**: Deployment version only (3.11)
 
 **Why These Are Production-Ready**:
+- Manual deployment approval prevents accidental production releases while maintaining fast feedback
+- Coverage gate ensures quality standards before any build artifacts are created
 - Trivy covers container + dependency vulnerabilities comprehensively
 - Performance testing on-demand is sufficient for stable workloads
-- Local GPU server updates are infrequent (stable models)
-- GitHub Actions UI provides adequate visibility
-- Docker enforces single Python version anyway
+- Local GPU server updates are infrequent (stable models benefit from manual oversight)
+- GitHub Actions UI provides adequate deployment visibility and audit trail
+- Docker enforces single Python version in runtime anyway
 
 ## Workflows
 
@@ -611,20 +675,23 @@ Simplified CI/CD pipeline using GitHub Actions for automated testing, building, 
   - Upload coverage artifacts
 - **Duration**: ~5 minutes
 
-### 2. CD - Deploy Application
+### 2. CD - Build and Deploy Application
 - **Trigger**: Push to main branch (app changes only)
-- **Steps**:
+- **Build Phase** (Automatic):
   - Build Docker image with Buildx
   - Push to GCR with caching
   - Run Trivy security scan (fail on CRITICAL)
+  - Upload security scan results to GitHub Security tab
+- **Deploy Phase** (Manual Approval Required):
+  - **Pause for approval** ← Reviewer approves in GitHub UI
   - Track deployment in MLFlow
   - Deploy to GKE with Helm
   - Verify rollout status
   - Run smoke tests (health, ready, query)
   - Validate CloudFlare Tunnel connectivity
   - Update MLFlow with deployment status
-- **Rollback**: Automatic on any failure
-- **Duration**: ~8-10 minutes
+- **Rollback**: Automatic on any deployment failure
+- **Duration**: Build ~5 minutes, Deploy (after approval) ~5 minutes
 
 ### 3. Emergency Rollback
 - **Trigger**: Manual via workflow_dispatch
@@ -662,7 +729,7 @@ Configure in GitHub → Settings → Secrets and variables → Actions:
 
 3. Create PR to develop
    └─> Triggers CI workflow
-       ├─ Run tests (>80% coverage)
+       ├─ Run tests (>80% coverage enforced)
        ├─ Lint with ruff
        ├─ Type check with mypy
        └─ Upload coverage artifacts
@@ -671,23 +738,35 @@ Configure in GitHub → Settings → Secrets and variables → Actions:
    └─> CI workflow runs again
 
 5. Create PR from develop to main
-   └─> CI workflow runs
+   └─> CI workflow runs (must pass with >80% coverage)
 
 6. Merge to main
-   └─> Triggers CD workflow
+   └─> Triggers CD workflow - BUILD PHASE (Automatic)
        ├─ Build Docker image
-       ├─ Trivy security scan
+       ├─ Trivy security scan (fail on CRITICAL)
        ├─ Push to GCR
+       └─ Upload scan results to GitHub Security
+
+7. Review and Approve Deployment
+   └─> GitHub Actions → Workflow run → "Review deployments"
+       ├─ Check test coverage report (>80%)
+       ├─ Check Trivy scan results (no CRITICAL)
+       ├─ Verify Docker image tag
+       └─ Click "Approve and deploy" button
+
+8. Deploy to GKE (After Approval)
+   └─> CD workflow - DEPLOY PHASE (Manual)
        ├─ Track in MLFlow
        ├─ Deploy to GKE with Helm
-       ├─ Smoke tests + tunnel validation
-       └─ Update MLFlow status
+       ├─ Verify rollout status
+       ├─ Run smoke tests + tunnel validation
+       └─ Update MLFlow with deployment status
 
-7. Monitor deployment
-   └─> GitHub Actions UI
-       ├─ View logs
-       ├─ Check artifacts
-       └─ Review security scans
+9. Monitor deployment
+   └─> GitHub Actions UI / Grafana dashboards
+       ├─ View deployment logs
+       ├─ Check pod status
+       └─ Monitor application metrics
 ```
 
 ### Emergency Rollback Flow
@@ -1128,7 +1207,7 @@ git push origin feature/test-ci-simplified
 # ⏱️ Duration: ~5 minutes
 ```
 
-### Test 2: CD Workflow
+### Test 2: CD Workflow with Manual Approval
 
 ```bash
 # Merge PR to develop, then create PR to main
@@ -1142,16 +1221,28 @@ git checkout main
 git merge develop
 git push origin main
 
-# Expected outcomes:
+# Expected outcomes - BUILD PHASE (Automatic):
 # ✅ CD workflow triggers automatically
+# ✅ BUILD job runs without waiting
 # ✅ Docker image built and pushed to GCR
 # ✅ Trivy scan completes (no CRITICAL vulnerabilities)
-# ✅ MLFlow tracks deployment run
+# ✅ SARIF results uploaded to GitHub Security
+# ⏱️ Duration: ~5 minutes
+
+# Expected outcomes - DEPLOY PHASE (Manual):
+# ⏸️ DEPLOY job pauses for approval
+# 📧 Required reviewer receives notification
+#
+# Manual step: Navigate to GitHub Actions → Workflow run → "Review deployments"
+# Click "Approve and deploy" button
+#
+# ✅ DEPLOY job continues after approval
+# ✅ MLFlow tracks manual deployment run
 # ✅ Helm deployment successful
 # ✅ Smoke tests pass (health, ready)
 # ✅ CloudFlare Tunnel health check passes
 # ✅ MLFlow updated with success status
-# ⏱️ Duration: ~8-10 minutes
+# ⏱️ Duration (after approval): ~5 minutes
 ```
 
 ### Test 3: Security Scan Failure
@@ -1230,6 +1321,7 @@ sudo systemctl start cloudflared
 ### CD Workflow
 - [ ] `.github/workflows/cd-app.yml` created
 - [ ] Workflow triggers on push to main (app changes only)
+- [ ] **BUILD job** runs automatically (no approval required)
 - [ ] Docker Buildx configured
 - [ ] GCR authentication working
 - [ ] Docker metadata action for image tagging
@@ -1237,8 +1329,12 @@ sudo systemctl start cloudflared
 - [ ] Trivy security scan integrated
 - [ ] Trivy fails build on CRITICAL vulnerabilities
 - [ ] SARIF results uploaded to GitHub Security
+- [ ] **DEPLOY job** requires manual approval
+- [ ] GitHub `production` environment created
+- [ ] Environment protection rules configured (required reviewers)
+- [ ] Deployment branches limited to `main` only
 - [ ] MLFlow client installed in workflow
-- [ ] MLFlow tracks deployment runs with parameters
+- [ ] MLFlow tracks manual deployments with approval metadata
 - [ ] Helm deployment with image tag from build job
 - [ ] Rollout status verification
 - [ ] Smoke tests (health, ready, query)
@@ -1269,41 +1365,61 @@ sudo systemctl start cloudflared
 
 ### Testing & Validation
 - [ ] CI workflow tested with feature branch PR
-- [ ] CD workflow tested with main branch push
+- [ ] CD BUILD phase tested (automatic trigger on main push)
+- [ ] Manual deployment approval tested (GitHub environment protection)
+- [ ] CD DEPLOY phase tested (runs after approval)
 - [ ] Security scan failure tested (vulnerable dependency)
 - [ ] CloudFlare Tunnel failure tested
 - [ ] Emergency rollback tested via GitHub Actions UI
-- [ ] MLFlow tracking verified for all workflows
+- [ ] MLFlow tracking verified for manual deployments
 - [ ] Coverage artifacts downloadable from GitHub
 - [ ] Trivy results visible in GitHub Security tab
+- [ ] Approval notification received by required reviewers
 
 ---
 
 ## 📝 Summary
 
-Phase 5 (Simplified) establishes production-ready CI/CD automation while avoiding over-engineering for a learning/capstone context.
+Phase 5 (Simplified) establishes production-ready **Continuous Delivery** pipeline with automated builds and manual deployment approval.
 
 **Key Achievements**:
-- **Automated Quality Gates**: >80% coverage, Trivy security scanning
+- **Continuous Delivery (Not Deployment)**: Auto build, manual deploy approval
+- **Coverage Gate**: >80% threshold blocks build (fail fast)
+- **Security Scanning**: Trivy catches CRITICAL vulnerabilities before deployment
+- **Manual Deployment Gate**: GitHub environment protection with required reviewers
 - **Zero-Downtime Deployments**: Rolling updates with automatic health checks
-- **Fast Feedback**: Complete pipeline in <10 minutes
-- **Safety**: Automatic rollback on any failure
-- **MLOps Integration**: All deployments tracked in MLFlow
+- **Fast Feedback**: Build ~5 min, Deploy (after approval) ~5 min
+- **Safety**: Automatic rollback on any deployment failure
+- **MLOps Integration**: All deployments tracked in MLFlow with approval metadata
 - **Hybrid Architecture Support**: CloudFlare Tunnel health validation
 - **Visibility**: GitHub Actions UI + MLFlow dashboards
 
+**Pipeline Flow**:
+```
+Push to main (if CI passed with >80% coverage)
+  ↓
+BUILD (Automatic) → Trivy Scan → Docker Push
+  ↓
+MANUAL APPROVAL GATE ⚠️
+  ↓
+DEPLOY (After Approval) → GKE → Smoke Tests → MLFlow
+```
+
 **Intentional Simplifications**:
 - Single security tool (Trivy) instead of 3 overlapping scanners
+- Manual deployment approval instead of fully automated CD
 - Manual performance testing instead of automated workflow
 - Manual model deployment (2 commands on local server)
 - GitHub native notifications instead of Slack
 - Single Python version testing (deployment version)
 
-**Why This Is Still Production-Ready**:
+**Why This Is Production-Ready**:
+- Manual approval prevents accidental production releases while maintaining fast feedback
+- Coverage gate ensures quality before building any artifacts
 - Trivy comprehensively covers container + dependency vulnerabilities
 - Performance testing on-demand is sufficient for stable workloads
 - Local GPU model updates are infrequent and benefit from manual oversight
-- GitHub Actions UI provides adequate deployment visibility
+- GitHub Actions UI provides adequate deployment visibility and audit trail
 - Docker enforces single Python version regardless of CI matrix
 
 **Timeline**: 2-3 days (vs 4-6 days original plan)
