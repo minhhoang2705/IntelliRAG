@@ -1,0 +1,23 @@
+apiVersion: v2
+name: intellirag-prometheus
+description: Prometheus monitoring stack for IntelliRAG - minimal production-ready setup
+type: application
+version: 1.0.0
+appVersion: "v0.86.1"
+keywords:
+  - prometheus
+  - monitoring
+  - metrics
+  - observability
+home: https://prometheus.io
+sources:
+  - https://github.com/prometheus-operator/kube-prometheus
+maintainers:
+  - name: IntelliRAG Team
+
+dependencies:
+  - name: kube-prometheus-stack
+    version: "78.3.2"
+    repository: https://prometheus-community.github.io/helm-charts
+
+

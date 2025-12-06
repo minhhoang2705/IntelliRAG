@@ -1,0 +1,452 @@
+# IntelliRAG Observability Stack - Unified Configuration
+# Optimized for 8-core Minikube cluster
+
+# Enable/disable components
+prometheus:
+  enabled: true
+loki:
+  enabled: true
+jaeger:
+  enabled: true
+
+# ==============================================================================
+# PROMETHEUS STACK (Metrics)
+# ==============================================================================
+kube-prometheus-stack:
+  prometheusOperator:
+    enabled: true
+    resources:
+      limits:
+        cpu: 300m
+        memory: 384Mi
+      requests:
+        cpu: 50m
+        memory: 192Mi
+
+  prometheus:
+    enabled: true
+    prometheusSpec:
+      retention: 15d
+      retentionSize: 18GB
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 20Gi
+            storageClassName: standard
+
+      resources:
+        limits:
+          cpu: 1500m
+          memory: 3Gi
+        requests:
+          cpu: 500m
+          memory: 1536Mi
+
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+
+      additionalScrapeConfigs:
+        - job_name: 'intellirag-metrics'
+          scrape_interval: 30s
+          scrape_timeout: 10s
+          static_configs:
+            - targets:
+                - 'intellirag-service.default.svc.cluster.local:8000'
+          metrics_path: '/metrics'
+          relabel_configs:
+            - source_labels: [__address__]
+              target_label: instance
+            - target_label: job
+              replacement: 'intellirag'
+
+        - job_name: 'vllm-metrics'
+          scrape_interval: 30s
+          scrape_timeout: 10s
+          static_configs:
+            - targets:
+                - 'vllm-service.default.svc.cluster.local:8000'
+          metrics_path: '/metrics'
+          relabel_configs:
+            - target_label: job
+              replacement: 'vllm'
+
+        - job_name: 'qdrant-metrics'
+          scrape_interval: 30s
+          static_configs:
+            - targets:
+                - 'qdrant.default.svc.cluster.local:6333'
+          metrics_path: '/metrics'
+
+      externalLabels:
+        cluster: intellirag
+        environment: development
+
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      replicas: 1  # Reduced for dev
+      retention: 120h
+      storage:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 5Gi  # Reduced for dev
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+
+    config:
+      global:
+        resolve_timeout: 5m
+      route:
+        group_by: ['alertname', 'cluster', 'service']
+        group_wait: 10s
+        group_interval: 10s
+        repeat_interval: 12h
+        receiver: 'null'
+        routes:
+          - match:
+              severity: critical
+            receiver: 'critical-alerts'
+            continue: true
+          - match:
+              severity: warning
+            receiver: 'warning-alerts'
+      receivers:
+        - name: 'null'
+        - name: 'critical-alerts'
+        - name: 'warning-alerts'
+
+  grafana:
+    enabled: false  # Will be deployed separately
+
+  nodeExporter:
+    enabled: true
+
+  kubeStateMetrics:
+    enabled: true
+
+  defaultRules:
+    create: true
+    rules:
+      alertmanager: true
+      etcd: false
+      configReloaders: true
+      general: true
+      k8s: true
+      kubeApiserver: true
+      kubeApiserverAvailability: true
+      kubeApiserverSlos: true
+      kubelet: true
+      kubeProxy: true
+      kubePrometheusGeneral: true
+      kubePrometheusNodeRecording: true
+      kubernetesApps: true
+      kubernetesResources: true
+      kubernetesStorage: true
+      kubernetesSystem: true
+      kubeScheduler: true
+      kubeStateMetrics: true
+      network: true
+      node: true
+      nodeExporterAlerting: true
+      nodeExporterRecording: true
+      prometheus: true
+      prometheusOperator: true
+
+  additionalPrometheusRulesMap:
+    intellirag-rules:
+      groups:
+        - name: intellirag_critical
+          interval: 30s
+          rules:
+            - alert: ServiceDown
+              expr: up{job="intellirag"} == 0
+              for: 1m
+              labels:
+                severity: critical
+                component: api
+              annotations:
+                summary: "IntelliRAG service is down"
+                description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+            - alert: HighErrorRate
+              expr: rate(http_requests_total{job="intellirag",status_code=~"5.."}[5m]) > 0.05
+              for: 5m
+              labels:
+                severity: critical
+                component: api
+              annotations:
+                summary: "High error rate detected"
+                description: "Error rate is {{ $value | humanizePercentage }}"
+
+# ==============================================================================
+# LOKI STACK (Logging)
+# ==============================================================================
+loki:
+  loki:
+    auth_enabled: false
+    schemaConfig:
+      configs:
+        - from: 2024-01-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    storage:
+      type: filesystem
+
+  deploymentMode: SingleBinary
+  singleBinary:
+    replicas: 1
+    resources:
+      limits:
+        cpu: 1
+        memory: 1536Mi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: standard
+    extraEnv:
+      - name: GOMEMLIMIT
+        value: "1200MiB"
+
+  chunksCache:
+    enabled: true
+    allocatedMemory: 512
+
+  resultsCache:
+    enabled: true
+    allocatedMemory: 256
+
+  read:
+    replicas: 0
+
+  write:
+    replicas: 0
+
+  backend:
+    replicas: 0
+
+  gateway:
+    enabled: true
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 80
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: nginx
+      hosts:
+        - host: loki.intellirag.local
+          paths:
+            - path: /
+              pathType: Prefix
+
+  promtail:
+    enabled: true
+    config:
+      clients:
+        - url: http://{{ .Release.Name }}-loki-gateway/loki/api/v1/push
+      positions:
+        filename: /tmp/positions.yaml
+      snippets:
+        pipelineStages:
+          - docker: {}
+          - json:
+              expressions:
+                level: level
+                message: message
+                trace_id: trace_id
+                span_id: span_id
+                timestamp: timestamp
+                service: service
+                endpoint: endpoint
+                method: method
+                status_code: status_code
+          - labels:
+              level:
+              trace_id:
+              span_id:
+              service:
+              endpoint:
+          - match:
+              selector: '{endpoint="/health"}'
+              action: drop
+        scrapeConfigs: |
+          - job_name: kubernetes-pods
+            kubernetes_sd_configs:
+              - role: pod
+            relabel_configs:
+              - source_labels: [__meta_kubernetes_pod_label_app]
+                target_label: app
+              - source_labels: [__meta_kubernetes_pod_name]
+                target_label: pod
+              - source_labels: [__meta_kubernetes_namespace]
+                target_label: namespace
+              - source_labels: [__meta_kubernetes_pod_container_name]
+                target_label: container
+            pipeline_stages:
+              - docker: {}
+              - json:
+                  expressions:
+                    level: level
+                    trace_id: trace_id
+                    span_id: span_id
+              - labels:
+                  level:
+                  trace_id:
+                  span_id:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+  monitoring:
+    serviceMonitor:
+      enabled: true
+      labels:
+        release: prometheus
+    selfMonitoring:
+      enabled: false
+      grafanaAgent:
+        installOperator: false
+
+  serviceAccount:
+    create: true
+    name: loki
+
+# ==============================================================================
+# JAEGER STACK (Tracing)
+# ==============================================================================
+jaeger:
+  provisionDataStore:
+    cassandra: false
+    elasticsearch: true
+    kafka: false
+
+  storage:
+    type: elasticsearch
+    elasticsearch:
+      host: elasticsearch-master
+      port: 9200
+      scheme: http
+      user: elastic
+      usePassword: false
+      nodesWanOnly: false
+
+  agent:
+    enabled: true
+    daemonset:
+      enabled: true
+      hostPort: 6831
+      useHostNetwork: false
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+  collector:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      zipkin:
+        port: 9411
+      grpc:
+        port: 14250
+      http:
+        port: 14268
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    autoscaling:
+      enabled: false
+
+  query:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 16686
+    resources:
+      limits:
+        cpu: 300m
+        memory: 384Mi
+      requests:
+        cpu: 100m
+        memory: 192Mi
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: nginx
+      hosts:
+        - jaeger.intellirag.local
+      pathType: Prefix
+
+  elasticsearch:
+    enabled: true
+    replicas: 1
+    minimumMasterNodes: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    volumeClaimTemplate:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi
+    esJavaOpts: "-Xmx1g -Xms1g"
+
+  schema:
+    create: true
+    ttl:
+      enabled: true
+      days: 7
+
+  sampling:
+    strategies: |
+      {
+        "default_strategy": {
+          "type": "probabilistic",
+          "param": 0.1
+        },
+        "service_strategies": [
+          {
+            "service": "intellirag-api",
+            "type": "probabilistic",
+            "param": 0.5
+          }
+        ]
+      }
+

@@ -1,0 +1,23 @@
+apiVersion: v2
+name: intellirag-loki
+description: Loki logging stack for IntelliRAG - minimal production-ready setup
+type: application
+version: 1.0.0
+appVersion: "3.3.0"
+keywords:
+  - loki
+  - logging
+  - log-aggregation
+  - observability
+home: https://grafana.com/oss/loki/
+sources:
+  - https://github.com/grafana/loki
+maintainers:
+  - name: IntelliRAG Team
+
+dependencies:
+  - name: loki
+    version: "6.21.0"
+    repository: https://grafana.github.io/helm-charts
+
+

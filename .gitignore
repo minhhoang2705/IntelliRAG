@@ -7,4 +7,37 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+intellirag
+
+# environment 
+.env
+.env.test
+.venv/
+.cursor/
+.coverage
+
+/gcp_secret/
+*.json
+
+# Model weight files are large, exclude from git
+# (Note: app/models/ contains Python schemas and should be tracked)
+/models/
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.tgz
+*.tar.gz
+
+# Qdrant database storage
+qdrant_storage/
+
+# Claude Code temporary files
+.claude/
+.opencode/
+.factory/
+.serena/
+
+# github actions key
+github-actions-key.*

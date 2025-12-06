@@ -1,0 +1,107 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+ENV/
+
+# Testing
+tests/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+.tox/
+coverage.xml
+*.cover
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Infrastructure
+terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform/
+
+# Kubernetes
+kubernetes/
+helm/
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files
+data/
+*.csv
+*.pdf
+*.docx
+
+# Model cache
+models/
+.cache/
+
+# MLOps
+# mlops/
+mlruns/
+
+# Deployment
+deploy/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Observability configs (will be managed by K8s ConfigMaps)
+observability/grafana/provisioning/dashboards/json/
+observability/grafana/provisioning/datasources/
+observability/grafana/alerts/
+
+# Repomix outputs
+repomix-output.xml
+repomix-analysis.xml

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: intellirag
+  labels:
+    name: intellirag
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kserve-config
+  namespace: intellirag
+data:
+  vllm_base_url: "http://vllm-qwen-predictor:8080/v1"
+  embedding_service_url: "http://embedding-bge-m3-predictor:8001"
+  qdrant_url: "http://qdrant:6333"
+

@@ -1,0 +1,135 @@
+# IntelliRAG Loki Stack
+# Minimal but production-ready configuration
+
+loki:
+  loki:
+    auth_enabled: false
+    
+    # Schema configuration (required)
+    schemaConfig:
+      configs:
+        - from: 2024-01-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    
+    # Storage configuration
+    storage:
+      type: filesystem
+    
+    # Retention
+    limits_config:
+      retention_period: 168h  # 7 days
+
+  # Single binary deployment (simple, production-ready)
+  deploymentMode: SingleBinary
+  singleBinary:
+    replicas: 1
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1536Mi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: standard
+    extraEnv:
+      - name: GOMEMLIMIT
+        value: "1200MiB"
+
+  # Disable scalable components
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  backend:
+    replicas: 0
+
+  # Optimize caches for minimal memory usage
+  chunksCache:
+    enabled: true
+    allocatedMemory: 512
+  resultsCache:
+    enabled: true
+    allocatedMemory: 256
+
+  # Gateway for API access
+  gateway:
+    enabled: true
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 80
+    ingress:
+      enabled: false  # Enable if using ingress controller
+      # ingressClassName: nginx
+      # hosts:
+      #   - host: loki.yourdomain.com
+      #     paths:
+      #       - path: /
+      #         pathType: Prefix
+
+  # Promtail for log collection
+  promtail:
+    enabled: true
+    config:
+      clients:
+        - url: http://{{ .Release.Name }}-gateway/loki/api/v1/push
+      
+      positions:
+        filename: /tmp/positions.yaml
+      
+      scrapeConfigs: |
+        # Collect logs from all pods
+        - job_name: kubernetes-pods
+          kubernetes_sd_configs:
+            - role: pod
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_label_app]
+              target_label: app
+            - source_labels: [__meta_kubernetes_pod_name]
+              target_label: pod
+            - source_labels: [__meta_kubernetes_namespace]
+              target_label: namespace
+            - source_labels: [__meta_kubernetes_pod_container_name]
+              target_label: container
+          pipeline_stages:
+            - docker: {}
+            # Parse JSON logs
+            - json:
+                expressions:
+                  level: level
+                  trace_id: trace_id
+                  message: message
+            - labels:
+                level:
+                trace_id:
+    
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+  # Monitoring integration
+  monitoring:
+    serviceMonitor:
+      enabled: true
+      labels:
+        release: prometheus
+    selfMonitoring:
+      enabled: false
+
+  # Service account
+  serviceAccount:
+    create: true
+
+

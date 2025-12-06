@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-policy
+  namespace: app
+spec:
+  podSelector:
+    matchLabels:
+      app: qdrant
+  policyTypes:
+  - Ingress
+  - Egress
+
+  ingress:
+  # Allow from intellirag-app
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: intellirag-app
+    ports:
+    - protocol: TCP
+      port: 6333
+
+  # Allow from same namespace
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 6333
+
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+  # Allow external (for backups to GCS)
+  - ports:
+    - protocol: TCP
+      port: 443

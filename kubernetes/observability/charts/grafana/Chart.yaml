@@ -1,0 +1,23 @@
+apiVersion: v2
+name: intellirag-grafana
+description: Grafana dashboarding for IntelliRAG - pre-configured with all datasources
+type: application
+version: 1.0.1
+appVersion: "12.2.1"
+keywords:
+  - grafana
+  - dashboards
+  - visualization
+  - observability
+home: https://grafana.com
+sources:
+  - https://github.com/grafana/grafana
+maintainers:
+  - name: IntelliRAG Team
+
+dependencies:
+  - name: grafana
+    version: "10.1.4"
+    repository: https://grafana.github.io/helm-charts
+
+

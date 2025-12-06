@@ -1,0 +1,15 @@
+apiVersion: v2
+name: intellirag-app
+description: IntelliRAG FastAPI Application - Production RAG System
+type: application
+version: 1.0.0
+appVersion: "0.1.0"
+keywords:
+  - rag
+  - llm
+  - fastapi
+  - ml
+  - vllm
+maintainers:
+  - name: IntelliRAG Team
+    email: tranhminh8464@gmail.com

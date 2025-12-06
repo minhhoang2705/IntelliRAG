@@ -1,0 +1,90 @@
+# Qdrant Helm Chart Values for GKE
+# Lightweight configuration for development/staging
+
+# Replica count for Qdrant
+replicaCount: 1
+
+image:
+  repository: qdrant/qdrant
+  tag: "v1.12.5"
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 6333
+  grpcPort: 6334
+
+# Persistence configuration
+persistence:
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+  storageClass: "standard-rwo"  # GKE standard persistent disk
+
+# Resource limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Security context
+# Note: fsGroup handles directory ownership automatically
+podSecurityContext:
+  fsGroup: 1000
+  # runAsUser: 1000  # Commented out to let init container run as root
+  # runAsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsUser: 1000  # Main container runs as non-root
+
+# Health checks
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /
+    port: 6333
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /
+    port: 6333
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Metrics for Prometheus
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Set to true if using Prometheus Operator
+
+# Pod annotations for Prometheus scraping
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "6333"
+  prometheus.io/path: "/metrics"
+
+# Affinity rules
+affinity: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []

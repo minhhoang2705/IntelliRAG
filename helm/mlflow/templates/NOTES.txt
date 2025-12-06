@@ -1,0 +1,16 @@
+MLFlow has been installed successfully!
+
+{{- if .Values.ingress.enabled }}
+MLFlow UI is available at:
+{{- range .Values.ingress.hosts }}
+  https://{{ .host }}
+{{- end }}
+{{- else }}
+To access MLFlow, run:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "mlflow.fullname" . }} 5000:5000
+
+Then access at: http://localhost:5000
+{{- end }}
+
+Backend Store: {{ .Values.mlflow.backendStoreUri }}
+Artifact Store: {{ .Values.mlflow.defaultArtifactRoot }}

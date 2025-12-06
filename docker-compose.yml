@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: intellirag-qdrant
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - intellirag-network
+  
+  # Embedding Service
+  embedding-service:
+    build: ./deploy/embedding-service
+    container_name: intellirag-embedding
+    runtime: nvidia  # Enable NVIDIA GPU support
+    ports:
+      - "8001:8001"
+    environment:
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-m3}
+      - DEVICE=${DEVICE:-cpu}
+      - MAX_BATCH_SIZE=${MAX_BATCH_SIZE:-128}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - intellirag-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  
+  qwen3-vllm:
+    image: vllm/vllm-openai:latest
+    container_name: qwen3-inference
+    runtime: nvidia
+    
+    environment:
+      # Authentication
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN}
+      
+      # GPU Configuration
+      CUDA_VISIBLE_DEVICES: "0"
+      
+      # Logging & Monitoring
+      VLLM_LOGGING_LEVEL: INFO
+      VLLM_NO_USAGE_STATS: "1"
+      
+      # Performance Optimization
+      VLLM_USE_TRITON_FLASH_ATTN: "True"
+      VLLM_ATTENTION_BACKEND: FLASH_ATTN
+    
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ./models:/models  # Optional: for locally stored models
+    
+    ports:
+      - "8000:8000"
+    
+    command: >
+      --model Qwen/Qwen3-0.6B
+      --gpu-memory-utilization 0.6
+      --max-model-len 8192
+      --dtype auto
+      --trust-remote-code
+      --max-num-seqs 64
+      --enable-prefix-caching
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    restart: unless-stopped
+
+
+volumes:
+  qdrant_data:
+    driver: local
+
+networks:
+  intellirag-network:
+    driver: bridge

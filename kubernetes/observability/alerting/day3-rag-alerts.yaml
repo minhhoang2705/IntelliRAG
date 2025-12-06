@@ -1,0 +1,121 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: intellirag-day3-alerts
+  namespace: observability
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+    - name: intellirag_performance
+      interval: 30s
+      rules:
+        - alert: HighHTTPLatencyP95
+          expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="intellirag-app"}[5m])) by (le)) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "High HTTP request latency detected"
+            description: "P95 latency is {{ $value }}s (threshold: 1s) for IntelliRAG API"
+
+        - alert: HighHTTPLatencyP99
+          expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="intellirag-app"}[5m])) by (le)) > 2
+          for: 5m
+          labels:
+            severity: critical
+            component: api
+          annotations:
+            summary: "Critical HTTP request latency detected"
+            description: "P99 latency is {{ $value }}s (threshold: 2s) for IntelliRAG API"
+
+        - alert: HighErrorRate
+          expr: sum(rate(http_requests_total{job="intellirag-app",status=~"5.."}[5m])) / sum(rate(http_requests_total{job="intellirag-app"}[5m])) * 100 > 5
+          for: 3m
+          labels:
+            severity: critical
+            component: api
+          annotations:
+            summary: "High HTTP error rate detected"
+            description: "Error rate is {{ $value }}% (threshold: 5%) for IntelliRAG API"
+
+        - alert: IntelliRAGServiceDown
+          expr: up{job="intellirag-app"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: api
+          annotations:
+            summary: "IntelliRAG service is down"
+            description: "IntelliRAG app pod {{ $labels.pod }} has been down for more than 1 minute"
+
+    - name: intellirag_rag_pipeline
+      interval: 30s
+      rules:
+        - alert: LowQueryClassificationConfidence
+          expr: histogram_quantile(0.50, sum(rate(query_classification_confidence_bucket{job="intellirag-app"}[5m])) by (le)) < 0.6
+          for: 10m
+          labels:
+            severity: warning
+            component: rag
+          annotations:
+            summary: "Low query classification confidence"
+            description: "Median query classification confidence is {{ $value }} (threshold: 0.6)"
+
+        - alert: HighQueryClassificationLatency
+          expr: histogram_quantile(0.95, sum(rate(query_classification_duration_seconds_bucket{job="intellirag-app"}[5m])) by (le)) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+            component: rag
+          annotations:
+            summary: "High query classification latency"
+            description: "P95 query classification duration is {{ $value }}s (threshold: 0.5s)"
+
+        - alert: LowRAGRetrievalResults
+          expr: rate(rag_retrieval_results_sum{job="intellirag-app"}[5m]) / rate(rag_retrieval_results_count{job="intellirag-app"}[5m]) < 1
+          for: 10m
+          labels:
+            severity: warning
+            component: rag
+          annotations:
+            summary: "Low RAG retrieval results"
+            description: "Average documents retrieved is {{ $value }} (threshold: 1), may indicate poor retrieval performance"
+
+    - name: intellirag_data_operations
+      interval: 30s
+      rules:
+        - alert: HighVectorDBOperationRate
+          expr: sum(rate(vector_db_operations_total{job="intellirag-app"}[5m])) > 100
+          for: 5m
+          labels:
+            severity: info
+            component: database
+          annotations:
+            summary: "High vector database operation rate"
+            description: "Vector DB operations rate is {{ $value }} ops/s (threshold: 100 ops/s)"
+
+        - alert: LowEmbeddingCacheHitRate
+          expr: sum(rate(embedding_cache_hits_total{job="intellirag-app"}[5m])) / (sum(rate(embedding_cache_hits_total{job="intellirag-app"}[5m])) + sum(rate(vector_db_operations_total{job="intellirag-app",operation="insert"}[5m]))) * 100 < 20
+          for: 15m
+          labels:
+            severity: warning
+            component: cache
+          annotations:
+            summary: "Low embedding cache hit rate"
+            description: "Embedding cache hit rate is {{ $value }}% (threshold: 20%), consider reviewing cache configuration"
+
+    - name: intellirag_availability
+      interval: 30s
+      rules:
+        - alert: MultiplePodsDown
+          expr: sum(up{job="intellirag-app"}) < 2
+          for: 2m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "Multiple IntelliRAG pods are down"
+            description: "Only {{ $value }} pod(s) running (expected: 2+), service availability at risk"

@@ -1,0 +1,100 @@
+# Loki for GKE
+# Using loki chart from grafana
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: 2024-01-01
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+deploymentMode: SingleBinary
+singleBinary:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1536Mi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: standard
+
+# Disable simple scalable components when using SingleBinary
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# Enable gateway for log ingestion
+gateway:
+  enabled: true
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 80
+
+# Promtail for log collection
+promtail:
+  enabled: true
+  config:
+    clients:
+      - url: http://{{ .Release.Name }}-gateway/loki/api/v1/push
+    positions:
+      filename: /tmp/positions.yaml
+    snippets:
+      pipelineStages:
+        - docker: {}
+        - json:
+            expressions:
+              level: level
+              message: message
+              trace_id: trace_id
+              span_id: span_id
+              service: service
+          labels:
+            level:
+            trace_id:
+            span_id:
+            service:
+      scrapeConfigs: |
+        - job_name: kubernetes-pods
+          kubernetes_sd_configs:
+            - role: pod
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_label_app]
+              target_label: app
+            - source_labels: [__meta_kubernetes_pod_name]
+              target_label: pod
+            - source_labels: [__meta_kubernetes_namespace]
+              target_label: namespace
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# Enable monitoring
+monitoring:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus
+  selfMonitoring:
+    enabled: false

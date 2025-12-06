@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "intellirag-app.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "intellirag-app.labels" . | nindent 4 }}
+data:
+  # Application Configuration
+  APP_NAME: {{ .Values.config.appName | quote }}
+  APP_VERSION: {{ .Values.config.appVersion | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+
+  # GCS Configuration
+  GCS_PROJECT_ID: {{ .Values.config.gcsProjectId | quote }}
+  GCS_BUCKET_NAME: {{ .Values.config.gcsBucketName | quote }}
+  GCS_USE_DEFAULT_CREDENTIALS: {{ .Values.config.gcsUseDefaultCredentials | quote }}
+  GCS_UPLOAD_TIMEOUT: {{ .Values.config.gcsUploadTimeout | quote }}
+  GCS_DOWNLOAD_TIMEOUT: {{ .Values.config.gcsDownloadTimeout | quote }}
+  GCS_MAX_RETRIES: {{ .Values.config.gcsMaxRetries | quote }}
+
+  # Qdrant Configuration
+  QDRANT_URL: {{ .Values.config.qdrantUrl | quote }}
+  QDRANT_COLLECTION_NAME: {{ .Values.config.qdrantCollectionName | quote }}
+
+  # vLLM Configuration (Hybrid - Local GPU Server)
+  VLLM_BASE_URL: {{ .Values.config.vllmBaseUrl | quote }}
+  VLLM_MODEL: {{ .Values.config.vllmModel | quote }}
+
+  # Embedding Service Configuration (Hybrid - Local GPU Server)
+  EMBEDDING_SERVICE_URL: {{ .Values.config.embeddingServiceUrl | quote }}
+  EMBEDDING_USE_REMOTE: {{ .Values.config.embeddingUseRemote | quote }}
+  EMBEDDING_DIMENSION: {{ .Values.config.embeddingDimension | quote }}
+  EMBEDDING_DEVICE: {{ .Values.config.embeddingDevice | quote }}
+  EMBEDDING_BATCH_SIZE: {{ .Values.config.embeddingBatchSize | quote }}
+
+  # Document Processing Configuration
+  MAX_FILE_SIZE_MB: {{ .Values.config.maxFileSizeMb | quote }}
+  ALLOWED_FILE_TYPES: {{ .Values.config.allowedFileTypes | quote }}
+  CHUNK_SIZE: {{ .Values.config.chunkSize | quote }}
+  CHUNK_OVERLAP: {{ .Values.config.chunkOverlap | quote }}
+
+  # RAG Configuration
+  RAG_TOP_K: {{ .Values.config.ragTopK | quote }}
+  RAG_TEMPERATURE: {{ .Values.config.ragTemperature | quote }}
+  RAG_MAX_TOKENS: {{ .Values.config.ragMaxTokens | quote }}
+
+  # Observability Configuration
+  JAEGER_HOST: {{ .Values.config.jaegerHost | quote }}
+  JAEGER_PORT: {{ .Values.config.jaegerPort | quote }}

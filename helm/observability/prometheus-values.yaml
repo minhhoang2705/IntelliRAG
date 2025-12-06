@@ -1,0 +1,153 @@
+# Prometheus Stack for GKE
+# Using kube-prometheus-stack chart from prometheus-community
+
+prometheusOperator:
+  enabled: true
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 50m
+      memory: 192Mi
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 15d
+    retentionSize: 18GB
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          storageClassName: standard
+          resources:
+            requests:
+              storage: 20Gi
+
+    resources:
+      limits:
+        cpu: 1500m
+        memory: 3Gi
+      requests:
+        cpu: 500m
+        memory: 1536Mi
+
+    # Discover all ServiceMonitors across namespaces
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    # Scrape IntelliRAG API and Qdrant
+    additionalScrapeConfigs:
+      - job_name: 'intellirag-api'
+        scrape_interval: 30s
+        scrape_timeout: 10s
+        static_configs:
+          - targets:
+              - 'intellirag-app.app.svc.cluster.local:8000'
+        metrics_path: '/metrics'
+
+      - job_name: 'qdrant'
+        scrape_interval: 30s
+        static_configs:
+          - targets:
+              - 'qdrant.database.svc.cluster.local:6333'
+        metrics_path: '/metrics'
+
+    externalLabels:
+      cluster: intellirag-gke
+      environment: production
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 1
+    retention: 120h
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          storageClassName: standard
+          resources:
+            requests:
+              storage: 5Gi
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+# Enable Grafana with Prometheus stack
+grafana:
+  enabled: true
+  adminPassword: admin
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: standard
+  service:
+    type: ClusterIP
+    port: 80
+
+# Enable node exporter and kube-state-metrics
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+# Default alerting rules
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: false
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserver: false
+    kubelet: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    node: true
+    prometheus: true
+
+# Custom alerting rules for IntelliRAG
+additionalPrometheusRulesMap:
+  intellirag-rules:
+    groups:
+      - name: intellirag_critical
+        interval: 30s
+        rules:
+          - alert: IntelliRAGServiceDown
+            expr: up{job="intellirag-api"} == 0
+            for: 1m
+            labels:
+              severity: critical
+              component: api
+            annotations:
+              summary: "IntelliRAG API is down"
+              description: "IntelliRAG API has been down for more than 1 minute"
+
+          - alert: QdrantDown
+            expr: up{job="qdrant"} == 0
+            for: 2m
+            labels:
+              severity: critical
+              component: database
+            annotations:
+              summary: "Qdrant vector database is down"
+              description: "Qdrant has been down for more than 2 minutes"
