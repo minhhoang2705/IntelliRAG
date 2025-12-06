@@ -4,7 +4,6 @@ import logging
 import json
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict
 from contextlib import contextmanager
 from opentelemetry import trace
 

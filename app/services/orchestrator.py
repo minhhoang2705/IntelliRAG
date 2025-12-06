@@ -40,7 +40,15 @@ class OrchestratorService:
         gcs_project: str = "test-project",
         gcs_bucket: str = "test-bucket",
         embedding_service_url: str = "http://localhost:8001",
-        use_remote_embedding: bool = True
+        use_remote_embedding: bool = True,
+        # Optional service injection for testing
+        embedding_service: EmbeddingService = None,
+        vectordb_service: VectorDBService = None,
+        llm_client: LLMClientService = None,
+        gcs_loader: GCSLoaderService = None,
+        semantic_chunker: SemanticChunkerService = None,
+        job_state_manager: JobStateManager = None,
+        query_router_service: QueryRouterService = None
     ):
         """Initialize orchestrator with all required services.
 
@@ -52,22 +60,39 @@ class OrchestratorService:
             gcs_bucket: GCS bucket name
             embedding_service_url: Embedding service URL (default: http://localhost:8001)
             use_remote_embedding: Use remote embedding service (default: True)
+            embedding_service: Optional pre-configured embedding service (for testing)
+            vectordb_service: Optional pre-configured vector DB service (for testing)
+            llm_client: Optional pre-configured LLM client (for testing)
+            gcs_loader: Optional pre-configured GCS loader (for testing)
+            semantic_chunker: Optional pre-configured semantic chunker (for testing)
+            job_state_manager: Optional pre-configured job state manager (for testing)
+            query_router_service: Optional pre-configured query router (for testing)
         """
         logger.info("Initializing OrchestratorService...")
 
-        # Initialize embedding service (remote or local mode)
-        self.embedding_service = EmbeddingService(
-            use_remote=use_remote_embedding,
-            remote_url=embedding_service_url,
-            device="cpu"  # Only used in local mode
-        )
+        # Initialize embedding service (use provided or create new)
+        if embedding_service is not None:
+            self.embedding_service = embedding_service
+        else:
+            self.embedding_service = EmbeddingService(
+                use_remote=use_remote_embedding,
+                remote_url=embedding_service_url,
+                device="cpu"  # Only used in local mode
+            )
 
-        # Initialize other services
-        self.vectordb_service = VectorDBService(url=vectordb_url)
-        self.llm_client = LLMClientService(
-            base_url=llm_base_url,
-            model=llm_model
-        )
+        # Initialize other services (use provided or create new)
+        if vectordb_service is not None:
+            self.vectordb_service = vectordb_service
+        else:
+            self.vectordb_service = VectorDBService(url=vectordb_url)
+
+        if llm_client is not None:
+            self.llm_client = llm_client
+        else:
+            self.llm_client = LLMClientService(
+                base_url=llm_base_url,
+                model=llm_model
+            )
 
         # Initialize RAG pipeline
         self.rag_pipeline = RAGPipelineService(
@@ -76,23 +101,36 @@ class OrchestratorService:
             llm_client=self.llm_client
         )
 
-        # Initialize query router service
-        classifier = QueryClassifier(llm_client=self.llm_client)
-        self.query_router_service = QueryRouterService(
-            classifier=classifier,
-            vectordb=self.vectordb_service,
-            llm=self.llm_client,
-            embedding=self.embedding_service
-        )
+        # Initialize query router service (use provided or create new)
+        if query_router_service is not None:
+            self.query_router_service = query_router_service
+        else:
+            classifier = QueryClassifier(llm_client=self.llm_client)
+            self.query_router_service = QueryRouterService(
+                classifier=classifier,
+                vectordb=self.vectordb_service,
+                llm=self.llm_client,
+                embedding=self.embedding_service
+            )
 
-        # Initialize ingestion services
-        self.gcs_loader = GCSLoaderService(
-            project_name=gcs_project, bucket=gcs_bucket)
-        self.semantic_chunker = SemanticChunkerService(
-            embeddings=self.embedding_service)
+        # Initialize ingestion services (use provided or create new)
+        if gcs_loader is not None:
+            self.gcs_loader = gcs_loader
+        else:
+            self.gcs_loader = GCSLoaderService(
+                project_name=gcs_project, bucket=gcs_bucket)
 
-        # Initialize job state manager
-        self.job_state_manager = JobStateManager()
+        if semantic_chunker is not None:
+            self.semantic_chunker = semantic_chunker
+        else:
+            self.semantic_chunker = SemanticChunkerService(
+                embeddings=self.embedding_service)
+
+        # Initialize job state manager (use provided or create new)
+        if job_state_manager is not None:
+            self.job_state_manager = job_state_manager
+        else:
+            self.job_state_manager = JobStateManager()
 
         logger.info("OrchestratorService initialized successfully")
 

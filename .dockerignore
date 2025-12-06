@@ -86,7 +86,7 @@ models/
 .cache/
 
 # MLOps
-mlops/
+# mlops/
 mlruns/
 
 # Deployment

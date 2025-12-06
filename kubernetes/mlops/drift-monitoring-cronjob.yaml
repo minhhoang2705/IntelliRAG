@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: drift-monitoring
+  namespace: mlflow
+spec:
+  schedule: "0 4 * * *"
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: mlflow-sa
+          restartPolicy: OnFailure
+          containers:
+          - name: drift-monitor
+            image: gcr.io/intellirag-aide1-capstone/intellirag-api:latest
+            command:
+            - python
+            - -c
+            - |
+              from mlops.monitoring.drift_detector import DriftDetector
+              detector = DriftDetector("http://mlflow-server.mlflow.svc.cluster.local:5000")
+              detector.monitor_query_patterns(lookback_days=7)
+            env:
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow-server.mlflow.svc.cluster.local:5000"
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: 1000m
+                memory: 2Gi

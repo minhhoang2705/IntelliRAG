@@ -1,0 +1,13 @@
+apiVersion: v2
+name: mlflow
+description: MLFlow tracking server for IntelliRAG MLOps pipeline
+type: application
+version: 1.0.0
+appVersion: "2.9.2"
+keywords:
+  - mlops
+  - mlflow
+  - model-registry
+  - experiment-tracking
+maintainers:
+  - name: IntelliRAG Team

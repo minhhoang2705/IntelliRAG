@@ -12,7 +12,6 @@ Extracted from the old BaseHandler to support both old and new loaders.
 """
 
 import logging
-import time
 import platform
 from pathlib import Path
 from typing import Dict, Any, List, Optional

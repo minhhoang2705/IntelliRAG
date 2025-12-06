@@ -48,13 +48,21 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - `Field()` for strict mode and constraints
   - Nested model validation
 
-### **API Gateway & Load Balancing** [PLANNED - Not Yet Deployed]
-- **NGINX** 
-  - API Gateway with authentication
-  - Rate limiting
+### **API Gateway & Load Balancing**
+- **NGINX** [PARTIALLY IMPLEMENTED]
+  - API Gateway
+  - Rate limiting (100 req/min at Ingress level)
   - Request routing
   - SSL/TLS termination
   - Kubernetes Ingress Controller
+
+- **API Authentication** [IMPLEMENTED]
+  - Bearer token authentication via `Authorization` header
+  - FastAPI `HTTPBearer` security scheme
+  - Environment variable configuration (`API_KEY`)
+  - Dev mode: authentication disabled when `API_KEY` not set
+  - Protected endpoints: `/api/v1/upload`, `/api/v1/query`, `/api/v1/ingest`
+  - Public endpoints: `/`, `/ready`, `/metrics`
 
 ### **Storage & Data Management**
 - **Google Cloud Storage (GCS)**
@@ -116,12 +124,20 @@ The high-level architecture can be seen at this path `./images/high_level_archit
   - State management for complex queries
   - Graph-based agent orchestration
 
-### **MLOps & Versioning** [PLANNED - Not Yet Implemented]
-- **MLFlow**: Model registry and versioning
-  - Model tracking
-  - Experiment management
-  - Model packaging for deployment
-- **DVC**: Data version control
+### **MLOps & Versioning**
+- **MLFlow**: Model registry and versioning [IMPLEMENTED]
+  - Tracking server: https://mlflow.blockchainradar.xyz
+  - Backend store: SQLite with 10Gi PVC
+  - Artifact store: GCS (gs://intellirag-mlflow-artifacts)
+  - Model tracking and experiment management
+  - Deployed via Helm chart (`helm/mlflow/`)
+  - Models registered: Qwen3-0.6B, EmbeddingGemma-300m
+- **Evidently**: Data drift monitoring [IMPLEMENTED]
+  - Drift detection service (`mlops/monitoring/drift_detector.py`)
+  - Daily CronJob for automated monitoring
+  - MLFlow integration for drift reports
+  - HTML reports stored in GCS
+- **DVC**: Data version control [PLANNED - Not Yet Implemented]
   - Dataset versioning
   - Pipeline tracking
   - Remote storage (S3/GCS)
@@ -320,8 +336,7 @@ rag-system/
 │   │   ├── file_validator.py      # FileValidatorService (security validations)
 │   │   ├── semantic_chunker.py    # SemanticChunkerService (LangChain semantic splitting)
 │   │   ├── base_embedding.py      # Base embedding interface
-│   │   ├── bge_m3_embedding.py    # BGE-M3 embedding implementation
-│   │   ├── embedding.py           # EmbeddingService (legacy/wrapper)
+│   │   ├── embedding.py           # EmbeddingService (BGE-M3, remote/local modes)
 │   │   ├── vectordb.py            # QdrantService
 │   │   ├── llm_client.py          # vLLM OpenAI client (async)
 │   │   └── rag_pipeline.py        # Retrieve → Generate pipeline

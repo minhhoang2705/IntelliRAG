@@ -1,0 +1,86 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/mlflow/mlflow
+  pullPolicy: IfNotPresent
+  tag: "v2.9.2"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "mlflow-server"
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations:
+    iam.gke.io/gcp-service-account: intellirag-cluster-workload-sa@intellirag-aide1-capstone.iam.gserviceaccount.com
+  name: "mlflow-sa"
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 5000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+  hosts:
+    - host: mlflow.blockchainradar.xyz
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: mlflow-tls
+      hosts:
+        - mlflow.blockchainradar.xyz
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+autoscaling:
+  enabled: false
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+mlflow:
+  backendStoreUri: "sqlite:///mlflow/mlflow.db"
+  defaultArtifactRoot: "gs://intellirag-mlflow-artifacts"
+  serveArtifacts: true
+  host: "0.0.0.0"
+  port: 5000
+
+persistence:
+  enabled: true
+  storageClass: "standard-rwo"
+  size: "10Gi"
+  mountPath: "/mlflow"

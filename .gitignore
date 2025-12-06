@@ -32,5 +32,12 @@ intellirag
 
 # Qdrant database storage
 qdrant_storage/
+
 # Claude Code temporary files
 .claude/
+.opencode/
+.factory/
+.serena/
+
+# github actions key
+github-actions-key.*

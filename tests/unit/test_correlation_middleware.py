@@ -1,6 +1,5 @@
 """Unit tests for correlation ID middleware."""
 
-import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 import uuid

@@ -40,6 +40,13 @@ spec:
           containerPort: 8000
           protocol: TCP
         env:
+        # API Authentication
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: apikeys
+              key: api-key
+
         # Application Configuration
         - name: APP_NAME
           valueFrom:

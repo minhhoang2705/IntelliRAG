@@ -1,6 +1,5 @@
 """Tests for utility functions."""
 
-import pytest
 
 
 def test_extract_file_extension_with_extension():

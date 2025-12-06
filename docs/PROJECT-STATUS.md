@@ -356,10 +356,9 @@ IntelliRAG is a production-ready RAG system with cloud-native architecture, curr
 
 ### 6.2 Technical Debt
 
-1. **Embedding Service**: Legacy `embedding.py` exists alongside new `bge_m3_embedding.py` (consolidation needed)
-2. **Query Router**: Both `query_router/` and `query_router_service.py` exist (consider refactoring)
-3. **Test Fixtures**: Some integration tests use hardcoded data (move to DVC when implemented)
-4. **Configuration Management**: Environment-specific configs scattered across files (centralize)
+1. **Query Router**: Both `query_router/` and `query_router_service.py` exist (consider refactoring)
+2. **Test Fixtures**: Some integration tests use hardcoded data (move to DVC when implemented)
+3. **Configuration Management**: Environment-specific configs scattered across files (centralize)
 
 ---
 

@@ -3,7 +3,6 @@
 Following TDD: This test will FAIL until we add classification to QueryResponse.
 """
 
-import pytest
 
 
 def test_query_response_accepts_classification():

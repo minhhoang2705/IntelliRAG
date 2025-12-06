@@ -5,7 +5,7 @@ Date: 2025-01-22
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from io import BytesIO
 
 

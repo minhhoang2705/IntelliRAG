@@ -5,7 +5,6 @@ based on classification results.
 """
 
 import pytest
-from typing import Optional, List
 
 
 class TestQueryGraphBuilding:
@@ -61,6 +60,9 @@ class TestQueryGraphBuilding:
         mock_llm = AsyncMock()
         mock_llm.generate.return_value = "Based on the policy..."
 
+        mock_embedding = AsyncMock()
+        mock_embedding.embed_single.return_value = [0.1] * 1024
+
         # Create initial state
         state: QueryState = {
             "query": "What does the policy say?",
@@ -77,7 +79,8 @@ class TestQueryGraphBuilding:
                 "configurable": {
                     "classifier": mock_classifier,
                     "vectordb": mock_vectordb,
-                    "llm": mock_llm
+                    "llm": mock_llm,
+                    "embedding": mock_embedding
                 }
             }
         )
@@ -113,6 +116,9 @@ class TestQueryGraphNodes:
         mock_result.score = 0.95
         mock_vectordb.search_vectors.return_value = [mock_result]
 
+        mock_embedding = AsyncMock()
+        mock_embedding.embed_single.return_value = [0.1] * 1024
+
         # Create state
         state: QueryState = {
             "query": "What is the revenue?",
@@ -127,12 +133,12 @@ class TestQueryGraphNodes:
         }
 
         # Call retrieve node with mocked service via config
-        result = await retrieve_node(state, config={"configurable": {"vectordb": mock_vectordb}})
+        result = await retrieve_node(state, config={"configurable": {"vectordb": mock_vectordb, "embedding": mock_embedding}})
 
         # Verify context was added
         assert result["context"] is not None
         assert len(result["context"]) > 0
-        assert "Sample context" in result["context"][0]
+        assert result["context"][0]["text"] == "Sample context"
 
     async def test_generate_node_with_context(self):
         """Should generate response using LLM with context."""
@@ -344,7 +350,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_rag_flow(self):
         """Test complete RAG flow: classify → retrieve → generate → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock, MagicMock
 
@@ -369,6 +375,9 @@ class TestEndToEndGraphFlows:
         mock_llm = AsyncMock()
         mock_llm.generate.return_value = "Based on the Q4 report, revenue was $10 million with 20% growth."
 
+        mock_embedding = AsyncMock()
+        mock_embedding.embed_single.return_value = [0.1] * 1024
+
         # Execute complete RAG flow
         result = await graph.ainvoke(
             {
@@ -382,7 +391,8 @@ class TestEndToEndGraphFlows:
                 "configurable": {
                     "classifier": mock_classifier,
                     "vectordb": mock_vectordb,
-                    "llm": mock_llm
+                    "llm": mock_llm,
+                    "embedding": mock_embedding
                 }
             }
         )
@@ -396,7 +406,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_direct_flow(self):
         """Test complete DIRECT flow: classify → generate → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock
 
@@ -441,7 +451,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_clarification_flow(self):
         """Test complete CLARIFICATION flow: classify → clarify → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock
 
@@ -481,7 +491,7 @@ class TestEndToEndGraphFlows:
 
     async def test_complete_multi_hop_flow(self):
         """Test complete MULTI_HOP flow: classify → retrieve → generate → END."""
-        from app.services.query_router.graph import build_query_graph, QueryState
+        from app.services.query_router.graph import build_query_graph
         from app.services.query_router.classifier import QueryClassification, QueryType
         from unittest.mock import AsyncMock, MagicMock
 
@@ -508,6 +518,9 @@ class TestEndToEndGraphFlows:
         mock_llm = AsyncMock()
         mock_llm.generate.return_value = "Q4 revenue ($10M) was 25% higher than Q3 revenue ($8M)."
 
+        mock_embedding = AsyncMock()
+        mock_embedding.embed_single.return_value = [0.1] * 1024
+
         # Execute complete MULTI_HOP flow
         result = await graph.ainvoke(
             {
@@ -521,7 +534,8 @@ class TestEndToEndGraphFlows:
                 "configurable": {
                     "classifier": mock_classifier,
                     "vectordb": mock_vectordb,
-                    "llm": mock_llm
+                    "llm": mock_llm,
+                    "embedding": mock_embedding
                 }
             }
         )
@@ -589,6 +603,9 @@ class TestEndToEndGraphFlows:
         mock_vectordb = AsyncMock()
         mock_vectordb.search_vectors.side_effect = Exception("Database connection failed")
 
+        mock_embedding = AsyncMock()
+        mock_embedding.embed_single.return_value = [0.1] * 1024
+
         # Execute flow with retrieval error
         result = await graph.ainvoke(
             {
@@ -601,7 +618,8 @@ class TestEndToEndGraphFlows:
             config={
                 "configurable": {
                     "classifier": mock_classifier,
-                    "vectordb": mock_vectordb
+                    "vectordb": mock_vectordb,
+                    "embedding": mock_embedding
                 }
             }
         )
@@ -640,6 +658,9 @@ class TestEndToEndGraphFlows:
         mock_llm = AsyncMock()
         mock_llm.generate.side_effect = Exception("LLM generation timeout")
 
+        mock_embedding = AsyncMock()
+        mock_embedding.embed_single.return_value = [0.1] * 1024
+
         # Execute flow with generation error
         result = await graph.ainvoke(
             {
@@ -653,7 +674,8 @@ class TestEndToEndGraphFlows:
                 "configurable": {
                     "classifier": mock_classifier,
                     "vectordb": mock_vectordb,
-                    "llm": mock_llm
+                    "llm": mock_llm,
+                    "embedding": mock_embedding
                 }
             }
         )
@@ -690,6 +712,9 @@ class TestEndToEndGraphFlows:
         mock_llm = AsyncMock()
         mock_llm.generate.return_value = "I don't have information about that in the documents."
 
+        mock_embedding = AsyncMock()
+        mock_embedding.embed_single.return_value = [0.1] * 1024
+
         # Execute flow with no retrieval results
         result = await graph.ainvoke(
             {
@@ -703,7 +728,8 @@ class TestEndToEndGraphFlows:
                 "configurable": {
                     "classifier": mock_classifier,
                     "vectordb": mock_vectordb,
-                    "llm": mock_llm
+                    "llm": mock_llm,
+                    "embedding": mock_embedding
                 }
             }
         )

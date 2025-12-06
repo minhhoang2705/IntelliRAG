@@ -17,8 +17,8 @@ from app.services.llm_client import LLMClientService
 class TestQueryRouterServiceInit:
     """Test QueryRouterService initialization."""
 
-    async def test_init_with_all_services(self):
-        """Should initialize with classifier, vectordb, and llm services."""
+    async def test_init_with_all_services(self, mock_embedding_service):
+        """Should initialize with classifier, vectordb, llm, and embedding services."""
         # Arrange
         mock_classifier = MagicMock(spec=QueryClassifier)
         mock_vectordb = MagicMock(spec=VectorDBService)
@@ -28,13 +28,15 @@ class TestQueryRouterServiceInit:
         service = QueryRouterService(
             classifier=mock_classifier,
             vectordb=mock_vectordb,
-            llm=mock_llm
+            llm=mock_llm,
+            embedding=mock_embedding_service
         )
 
         # Assert
         assert service.classifier == mock_classifier
         assert service.vectordb == mock_vectordb
         assert service.llm == mock_llm
+        assert service.embedding == mock_embedding_service
         assert service.graph is not None
 
 
@@ -43,7 +45,7 @@ class TestQueryRouterServiceInit:
 class TestQueryRouterServiceRouteQuery:
     """Test QueryRouterService.route_query() method."""
 
-    async def test_route_rag_query_success(self):
+    async def test_route_rag_query_success(self, mock_embedding_service):
         """Should successfully route RAG query through retrieval."""
         # Arrange
         from unittest.mock import AsyncMock
@@ -62,7 +64,8 @@ class TestQueryRouterServiceRouteQuery:
         service = QueryRouterService(
             classifier=mock_classifier,
             vectordb=mock_vectordb,
-            llm=mock_llm
+            llm=mock_llm,
+            embedding=mock_embedding_service
         )
 
         query = "What is the revenue in Q4 report?"
@@ -78,7 +81,7 @@ class TestQueryRouterServiceRouteQuery:
         # Verify classifier was actually called
         mock_classifier.classify.assert_called_once_with(query)
 
-    async def test_route_query_error_handling(self):
+    async def test_route_query_error_handling(self, mock_embedding_service):
         """Should handle classification errors gracefully."""
         from unittest.mock import AsyncMock
 
@@ -92,7 +95,8 @@ class TestQueryRouterServiceRouteQuery:
         service = QueryRouterService(
             classifier=mock_classifier,
             vectordb=mock_vectordb,
-            llm=mock_llm
+            llm=mock_llm,
+            embedding=mock_embedding_service
         )
 
         # Act

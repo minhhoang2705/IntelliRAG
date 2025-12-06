@@ -7,7 +7,7 @@ Date: 2025-10-24
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from langchain_core.documents import Document
 
 

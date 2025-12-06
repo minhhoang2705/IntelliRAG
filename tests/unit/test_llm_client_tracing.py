@@ -21,10 +21,15 @@ class TestLLMClientTracing:
         # Create service with mocked client
         service = LLMClientService(base_url="http://localhost:8000/v1", model="test-model")
 
-        # Mock the OpenAI client
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "Test response"
+        # Mock the OpenAI client with proper response structure
+        from tests.conftest import create_mock_llm_response
+        mock_response = create_mock_llm_response(
+            text="Test response",
+            total_tokens=100,
+            prompt_tokens=50,
+            completion_tokens=50,
+            model="test-model"
+        )
         service.client.chat.completions.create = AsyncMock(return_value=mock_response)
 
         # Mock tracer to capture span creation

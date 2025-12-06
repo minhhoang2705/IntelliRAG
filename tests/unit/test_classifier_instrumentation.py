@@ -1,13 +1,13 @@
 """Test QueryClassifier metrics instrumentation."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 
 @pytest.mark.asyncio
 async def test_classifier_records_classification_metric():
     """Test classifier records total classifications."""
-    from app.services.query_router.classifier import QueryClassifier, QueryType
+    from app.services.query_router.classifier import QueryClassifier
     from app.api.middleware.metrics import query_classification_total
     
     # Create classifier with mocked LLM

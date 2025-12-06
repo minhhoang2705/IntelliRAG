@@ -3,7 +3,6 @@
 This module tests Prometheus HTTP metrics instrumentation.
 """
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY

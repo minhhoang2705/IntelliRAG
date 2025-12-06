@@ -7,7 +7,7 @@ retrieval, and generation to answer user queries.
 
 """
 
-from typing import List, Dict, Any
+from typing import Dict, Any
 from app.services.embedding import EmbeddingService
 from app.services.vectordb import VectorDBService
 from app.services.llm_client import LLMClientService

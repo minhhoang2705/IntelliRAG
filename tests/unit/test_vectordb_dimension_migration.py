@@ -7,9 +7,8 @@ Date: 2025-11-05
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from app.services.vectordb import VectorDBService
-from qdrant_client.models import Distance, VectorParams, CollectionInfo, CollectionsResponse
 
 
 class TestVectorDBDimensionDetection:

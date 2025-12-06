@@ -6,7 +6,6 @@ for correlation with distributed traces.
 Date: 2025-11-06
 """
 
-import pytest
 import json
 import logging
 from unittest.mock import patch, MagicMock
@@ -20,7 +19,6 @@ class TestLoggingTraceCorrelation:
         """Test that StructuredJSONFormatter includes trace_id and span_id."""
         # RED: Will fail because trace context not in logs
         from app.core.logging import StructuredJSONFormatter
-        from opentelemetry import trace
 
         # Create formatter and logger
         formatter = StructuredJSONFormatter()

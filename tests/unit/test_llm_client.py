@@ -31,13 +31,29 @@ async def test_llm_client_initialization():
 async def test_llm_client_generate(mocker):
     """Test LLM client generates text completions."""
     from app.services.llm_client import LLMClientService
+    from unittest.mock import Mock
+    import time
 
     client = LLMClientService()
 
-    # Mock the OpenAI client response
-    mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message.content = "Python is a programming language"
+    # Create properly structured mock response with actual int tokens
+    mock_response = Mock()
+    mock_message = Mock()
+    mock_message.content = "Python is a programming language"
+    mock_choice = Mock()
+    mock_choice.message = mock_message
+    mock_response.choices = [mock_choice]
+
+    # CRITICAL: Actual integers, not Mocks
+    mock_usage = Mock()
+    mock_usage.total_tokens = 100
+    mock_usage.prompt_tokens = 20
+    mock_usage.completion_tokens = 80
+    mock_response.usage = mock_usage
+
+    mock_response.model = "Qwen/Qwen3-0.6B"
+    mock_response.created = int(time.time())
+    mock_response.id = f"chatcmpl-{int(time.time())}"
 
     # Use AsyncMock for async method
     mock_create = AsyncMock(return_value=mock_response)

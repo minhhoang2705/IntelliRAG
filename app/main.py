@@ -5,8 +5,6 @@ This module provides the main FastAPI application with RAG endpoints.
 2025-10-17
 """
 
-from email.policy import HTTP
-from inspect import CO_ASYNC_GENERATOR
 from app.api.middleware.metrics_middleware import MetricsMiddleware
 from contextlib import asynccontextmanager
 import os
@@ -15,7 +13,6 @@ import time
 import asyncio
 from prometheus_client import Counter
 from fastapi import FastAPI, HTTPException, Response, status
-from app.services import embedding
 from app.services.orchestrator import OrchestratorService
 from prometheus_client import generate_latest
 from app.core.logging import setup_logging, get_logger
