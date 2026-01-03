@@ -24,7 +24,7 @@ class TestOrchestratorMetrics:
         orchestrator = OrchestratorService()
 
         with patch("app.services.orchestrator.document_processing_stage_duration_seconds") as mock_duration:
-            with patch.object(orchestrator.gcs_loader, "load_file", new=AsyncMock(return_value=[])):
+            with patch.object(orchestrator.storage_loader, "load_file", new=AsyncMock(return_value=[])):
                 with patch.object(orchestrator.semantic_chunker, "chunk_documents", new=AsyncMock(return_value=[])):
                     with patch.object(orchestrator.embedding_service, "embed_batch", return_value=[]):
                         with patch.object(orchestrator.vectordb_service, "upsert_vectors", new=AsyncMock()):
@@ -64,7 +64,7 @@ class TestOrchestratorMetrics:
 
         with patch("app.services.orchestrator.document_processing_stage_duration_seconds") as mock_duration:
             with patch("app.services.orchestrator.ingestion_chunks_created") as mock_chunks_metric:
-                with patch.object(orchestrator.gcs_loader, "load_file", new=AsyncMock(return_value=[])):
+                with patch.object(orchestrator.storage_loader, "load_file", new=AsyncMock(return_value=[])):
                     with patch.object(orchestrator.semantic_chunker, "chunk_documents", new=AsyncMock(return_value=mock_chunks)):
                         with patch.object(orchestrator.embedding_service, "embed_batch", return_value=[[], [], []]):
                             with patch.object(orchestrator.vectordb_service, "upsert_vectors", new=AsyncMock()):
@@ -97,7 +97,7 @@ class TestOrchestratorMetrics:
         orchestrator = OrchestratorService()
 
         with patch("app.services.orchestrator.document_processing_stage_duration_seconds") as mock_duration:
-            with patch.object(orchestrator.gcs_loader, "load_file", new=AsyncMock(return_value=[])):
+            with patch.object(orchestrator.storage_loader, "load_file", new=AsyncMock(return_value=[])):
                 with patch.object(orchestrator.semantic_chunker, "chunk_documents", new=AsyncMock(return_value=[])):
                     with patch.object(orchestrator.embedding_service, "embed_batch", return_value=[]):
                         with patch.object(orchestrator.vectordb_service, "upsert_vectors", new=AsyncMock()):
@@ -126,7 +126,7 @@ class TestOrchestratorMetrics:
         orchestrator = OrchestratorService()
 
         with patch("app.services.orchestrator.document_processing_stage_duration_seconds") as mock_duration:
-            with patch.object(orchestrator.gcs_loader, "load_file", new=AsyncMock(return_value=[])):
+            with patch.object(orchestrator.storage_loader, "load_file", new=AsyncMock(return_value=[])):
                 with patch.object(orchestrator.semantic_chunker, "chunk_documents", new=AsyncMock(return_value=[])):
                     with patch.object(orchestrator.embedding_service, "embed_batch", return_value=[]):
                         with patch.object(orchestrator.embedding_service, "get_embedding_dimension", return_value=1024):
@@ -163,7 +163,7 @@ class TestIngestionJobDurationMetric:
         orchestrator = OrchestratorService()
 
         # Mock services
-        mocker.patch.object(orchestrator.gcs_loader, 'load_file', AsyncMock(
+        mocker.patch.object(orchestrator.storage_loader, 'load_file', AsyncMock(
             return_value=[Document(page_content="test")]))
         mocker.patch.object(orchestrator.semantic_chunker,
                             'chunk_documents', AsyncMock(return_value=[Document(page_content="chunk")]))
@@ -209,7 +209,7 @@ class TestIngestionJobDurationMetric:
         orchestrator = OrchestratorService()
 
         # Mock GCS loader to raise an error
-        mocker.patch.object(orchestrator.gcs_loader, 'load_file',
+        mocker.patch.object(orchestrator.storage_loader, 'load_file',
                             AsyncMock(side_effect=Exception("GCS failure")))
 
         # Get initial sample count

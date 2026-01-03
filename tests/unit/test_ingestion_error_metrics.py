@@ -17,7 +17,7 @@ async def test_records_error_on_gcs_load_failure(mocker):
     orchestrator = OrchestratorService()
 
     # Mock GCS loader to raise error
-    mocker.patch.object(orchestrator.gcs_loader, 'load_file',
+    mocker.patch.object(orchestrator.storage_loader, 'load_file',
                         AsyncMock(side_effect=Exception("GCS connection timeout")))
 
     # Get initial count
@@ -60,7 +60,7 @@ async def test_records_error_on_chunking_failure(mocker):
     orchestrator = OrchestratorService()
 
     # Mock GCS to succeed, chunker to fail
-    mocker.patch.object(orchestrator.gcs_loader, 'load_file',
+    mocker.patch.object(orchestrator.storage_loader, 'load_file',
                         AsyncMock(return_value=[Document(page_content="test")]))
     mocker.patch.object(orchestrator.semantic_chunker, 'chunk_documents',
                         AsyncMock(side_effect=ValueError("Chunking failed")))
@@ -105,7 +105,7 @@ async def test_records_error_on_embedding_failure(mocker):
     orchestrator = OrchestratorService()
 
     # Mock GCS and chunker to succeed, embedding to fail
-    mocker.patch.object(orchestrator.gcs_loader, 'load_file',
+    mocker.patch.object(orchestrator.storage_loader, 'load_file',
                         AsyncMock(return_value=[Document(page_content="test")]))
     mocker.patch.object(orchestrator.semantic_chunker, 'chunk_documents',
                         AsyncMock(return_value=[Document(page_content="chunk")]))
@@ -150,8 +150,8 @@ async def test_records_error_on_storage_failure(mock_orchestrator):
     from unittest.mock import AsyncMock
 
     # Configure mocks - all succeed except storage
-    mock_orchestrator.gcs_loader.load_file.return_value = [Document(page_content="test")]
-    mock_orchestrator.gcs_loader.bucket = "test-bucket"
+    mock_orchestrator.storage_loader.load_file.return_value = [Document(page_content="test")]
+    mock_orchestrator.storage_loader.bucket = "test-bucket"
     mock_orchestrator.semantic_chunker.chunk_documents.return_value = [Document(page_content="chunk")]
     mock_orchestrator.embedding_service.embed_batch.return_value = [[0.1] * 1024]
     mock_orchestrator.vectordb_service.upsert_vectors = AsyncMock(

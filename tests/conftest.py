@@ -132,8 +132,10 @@ def mock_orchestrator():
     })
     mock_llm.is_healthy = AsyncMock(return_value=True)
 
-    mock_gcs = Mock()
-    mock_gcs.load_file = AsyncMock(return_value=[])
+    # Cloud-agnostic storage loader (supports both GCS and S3)
+    mock_storage_loader = Mock()
+    mock_storage_loader.load_file = AsyncMock(return_value=[])
+    mock_storage_loader.bucket = "test-bucket"  # Required for path extraction
 
     mock_chunker = Mock()
     mock_chunker.chunk_documents = AsyncMock(return_value=[])
@@ -160,7 +162,7 @@ def mock_orchestrator():
         embedding_service=mock_embedding,
         vectordb_service=mock_vectordb,
         llm_client=mock_llm,
-        gcs_loader=mock_gcs,
+        storage_loader=mock_storage_loader,
         semantic_chunker=mock_chunker,
         job_state_manager=mock_job_mgr,
         query_router_service=mock_router

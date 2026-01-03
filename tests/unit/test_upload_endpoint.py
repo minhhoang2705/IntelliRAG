@@ -4,12 +4,28 @@ This module tests the file upload API endpoint with comprehensive TDD coverage.
 
 Date: 2025-10-28
 Updated: 2025-10-29 - Full production-ready tests (TDD RED phase)
+Updated: 2025-12-31 - Updated for cloud-agnostic storage with dependency injection
 """
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from io import BytesIO
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
+
+def create_mock_storage_service(upload_return_value="gs://bucket/test.pdf"):
+    """Create a mock storage service that implements ObjectStorageProtocol."""
+    mock = MagicMock()
+    mock.connect = AsyncMock()
+    mock.disconnect = AsyncMock()
+    mock.upload_file = AsyncMock(return_value=upload_return_value)
+    mock.download_file = AsyncMock(return_value=b"test content")
+
+    # Make it work as async context manager
+    mock.__aenter__ = AsyncMock(return_value=mock)
+    mock.__aexit__ = AsyncMock(return_value=None)
+
+    return mock
 
 
 class TestUploadEndpoint:
@@ -17,42 +33,39 @@ class TestUploadEndpoint:
 
     @pytest.mark.asyncio
     async def test_upload_valid_pdf_success(self, auth_override):
-        """Valid PDF upload should return complete response with GCS path.
+        """Valid PDF upload should return complete response with storage path.
 
-        Expected: 200 status, file_id (UUID), gcs_path, file_size, mime_type, uploaded_at.
-        RED: This should FAIL as endpoint doesn't integrate with GCS yet.
+        Expected: 200 status, file_id (UUID), storage_path, file_size, mime_type, uploaded_at.
         """
         from app.main import app
         from app.api.middleware.auth import verify_api_key
+        from app.api.v1.upload import get_storage_service
 
         pdf_content = b"%PDF-1.4 test content"
         files = {"file": ("test.pdf", BytesIO(pdf_content), "application/pdf")}
         data = {"collection_name": "documents"}
 
+        mock_storage = create_mock_storage_service("gs://intellirag-uploads/uuid-123/test.pdf")
+
         app.dependency_overrides[verify_api_key] = auth_override
+        app.dependency_overrides[get_storage_service] = lambda: mock_storage
         try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                with patch("app.api.v1.upload.gcs_storage") as mock_gcs:
-                    # Mock GCS context manager
-                    mock_gcs.__aenter__ = AsyncMock(return_value=mock_gcs)
-                    mock_gcs.__aexit__ = AsyncMock(return_value=None)
-                    mock_gcs.upload_file = AsyncMock(return_value="gs://intellirag-uploads/uuid-123/test.pdf")
-
-                    response = await client.post("/api/v1/upload", files=files, data=data)
+                response = await client.post("/api/v1/upload", files=files, data=data)
 
             assert response.status_code == 200, f"Expected 200, got {response.status_code}"
             data = response.json()
 
-            # Verify complete response schema
+            # Verify complete response schema (storage_path is cloud-agnostic)
             assert "file_id" in data, "Response must include file_id"
-            assert "gcs_path" in data, "Response must include gcs_path"
+            assert "storage_path" in data, "Response must include storage_path"
             assert "file_size" in data, "Response must include file_size"
             assert "mime_type" in data, "Response must include mime_type"
             assert "uploaded_at" in data, "Response must include uploaded_at"
 
-            # Verify values
+            # Verify values - storage_path can be gs:// or s3://
             assert data["filename"] == "test.pdf"
-            assert data["gcs_path"].startswith("gs://")
+            assert data["storage_path"].startswith(("gs://", "s3://"))
             assert data["file_size"] == len(pdf_content)
             assert data["mime_type"] == "application/pdf"
 
@@ -118,27 +131,30 @@ class TestUploadEndpoint:
 
     @pytest.mark.asyncio
     async def test_upload_gcs_failure_returns_500(self, auth_override):
-        """GCS upload failure should return 500 Internal Server Error.
+        """Storage upload failure should return 500 Internal Server Error.
 
-        Expected: 500 status with error message when GCS fails.
-        RED: This should FAIL as error handling doesn't exist.
+        Expected: 500 status with error message when storage fails.
         """
         from app.main import app
         from app.api.middleware.auth import verify_api_key
+        from app.api.v1.upload import get_storage_service
 
         pdf_content = b"%PDF-1.4 test"
         files = {"file": ("test.pdf", BytesIO(pdf_content), "application/pdf")}
         data = {"collection_name": "docs"}
 
+        # Create a mock that fails on context manager entry
+        mock_storage = MagicMock()
+        mock_storage.__aenter__ = AsyncMock(side_effect=Exception("Storage connection failed"))
+        mock_storage.__aexit__ = AsyncMock(return_value=None)
+
         app.dependency_overrides[verify_api_key] = auth_override
+        app.dependency_overrides[get_storage_service] = lambda: mock_storage
         try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                with patch("app.api.v1.upload.gcs_storage") as mock_gcs:
-                    mock_gcs.__aenter__ = AsyncMock(side_effect=Exception("GCS connection failed"))
+                response = await client.post("/api/v1/upload", files=files, data=data)
 
-                    response = await client.post("/api/v1/upload", files=files, data=data)
-
-            assert response.status_code == 500, f"Expected 500 for GCS failure, got {response.status_code}"
+            assert response.status_code == 500, f"Expected 500 for storage failure, got {response.status_code}"
             error_data = response.json()
             assert "detail" in error_data
             assert "upload failed" in error_data["detail"].lower() or "error" in error_data["detail"].lower()
@@ -173,10 +189,10 @@ class TestUploadEndpoint:
         """Only allowed MIME types should be accepted.
 
         Expected: PDF, DOCX, TXT, CSV, MD allowed. Others rejected with 400.
-        RED: This should FAIL as MIME validation doesn't exist.
         """
         from app.main import app
         from app.api.middleware.auth import verify_api_key
+        from app.api.v1.upload import get_storage_service
 
         allowed_types = [
             ("test.pdf", "application/pdf"),
@@ -194,13 +210,11 @@ class TestUploadEndpoint:
                     files = {"file": (filename, BytesIO(content), mime_type)}
                     data = {"collection_name": "docs"}
 
-                    with patch("app.api.v1.upload.gcs_storage") as mock_gcs:
-                        mock_gcs.__aenter__ = AsyncMock(return_value=mock_gcs)
-                        mock_gcs.__aexit__ = AsyncMock(return_value=None)
-                        mock_gcs.upload_file = AsyncMock(return_value=f"gs://bucket/{filename}")
+                    # Create fresh mock for each file type
+                    mock_storage = create_mock_storage_service(f"gs://bucket/{filename}")
+                    app.dependency_overrides[get_storage_service] = lambda m=mock_storage: m
 
-                        response = await client.post("/api/v1/upload", files=files, data=data)
-
+                    response = await client.post("/api/v1/upload", files=files, data=data)
                     assert response.status_code == 200, f"{mime_type} should be allowed"
         finally:
             app.dependency_overrides.clear()
@@ -235,29 +249,28 @@ class TestUploadEndpoint:
         """Successful upload should record duration metric.
 
         Expected: file_upload_duration_seconds.observe() called with file type.
-        RED: This should FAIL as metrics are not instrumented yet.
         """
         from app.main import app
         from app.api.middleware.auth import verify_api_key
+        from app.api.v1.upload import get_storage_service
+        from unittest.mock import patch
 
         pdf_content = b"%PDF-1.4 test content"
         files = {"file": ("test.pdf", BytesIO(pdf_content), "application/pdf")}
         data = {"collection_name": "documents"}
 
+        mock_storage = create_mock_storage_service("gs://bucket/test.pdf")
+
         app.dependency_overrides[verify_api_key] = auth_override
+        app.dependency_overrides[get_storage_service] = lambda: mock_storage
         try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                with patch("app.api.v1.upload.gcs_storage") as mock_gcs:
-                    with patch("app.api.v1.upload.file_upload_duration_seconds") as mock_duration:
-                        mock_gcs.__aenter__ = AsyncMock(return_value=mock_gcs)
-                        mock_gcs.__aexit__ = AsyncMock(return_value=None)
-                        mock_gcs.upload_file = AsyncMock(return_value="gs://bucket/test.pdf")
+                with patch("app.api.v1.upload.file_upload_duration_seconds") as mock_duration:
+                    response = await client.post("/api/v1/upload", files=files, data=data)
 
-                        response = await client.post("/api/v1/upload", files=files, data=data)
-
-                        assert response.status_code == 200
-                        mock_duration.labels.assert_called_once_with(file_type="pdf")
-                        mock_duration.labels.return_value.observe.assert_called_once()
+                    assert response.status_code == 200
+                    mock_duration.labels.assert_called_once_with(file_type="pdf")
+                    mock_duration.labels.return_value.observe.assert_called_once()
         finally:
             app.dependency_overrides.clear()
 
@@ -266,29 +279,28 @@ class TestUploadEndpoint:
         """Successful upload should record file size metric.
 
         Expected: file_upload_size_bytes.observe() called with actual file size.
-        RED: This should FAIL as size metric is not instrumented yet.
         """
         from app.main import app
         from app.api.middleware.auth import verify_api_key
+        from app.api.v1.upload import get_storage_service
+        from unittest.mock import patch
 
         pdf_content = b"%PDF-1.4 test content"
         files = {"file": ("test.pdf", BytesIO(pdf_content), "application/pdf")}
         data = {"collection_name": "documents"}
 
+        mock_storage = create_mock_storage_service("gs://bucket/test.pdf")
+
         app.dependency_overrides[verify_api_key] = auth_override
+        app.dependency_overrides[get_storage_service] = lambda: mock_storage
         try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                with patch("app.api.v1.upload.gcs_storage") as mock_gcs:
-                    with patch("app.api.v1.upload.file_upload_size_bytes") as mock_size:
-                        mock_gcs.__aenter__ = AsyncMock(return_value=mock_gcs)
-                        mock_gcs.__aexit__ = AsyncMock(return_value=None)
-                        mock_gcs.upload_file = AsyncMock(return_value="gs://bucket/test.pdf")
+                with patch("app.api.v1.upload.file_upload_size_bytes") as mock_size:
+                    response = await client.post("/api/v1/upload", files=files, data=data)
 
-                        response = await client.post("/api/v1/upload", files=files, data=data)
-
-                        assert response.status_code == 200
-                        mock_size.labels.assert_called_once_with(file_type="pdf")
-                        mock_size.labels.return_value.observe.assert_called_once_with(len(pdf_content))
+                    assert response.status_code == 200
+                    mock_size.labels.assert_called_once_with(file_type="pdf")
+                    mock_size.labels.return_value.observe.assert_called_once_with(len(pdf_content))
         finally:
             app.dependency_overrides.clear()
 
@@ -297,28 +309,27 @@ class TestUploadEndpoint:
         """Upload should record positive duration, not zero.
 
         Expected: duration > 0
-        RED: Will FAIL as duration is hardcoded to 0.
         """
         from app.main import app
         from app.api.middleware.auth import verify_api_key
+        from app.api.v1.upload import get_storage_service
+        from unittest.mock import patch
 
         pdf_content = b"%PDF-1.4 test"
         files = {"file": ("test.pdf", BytesIO(pdf_content), "application/pdf")}
         data = {"collection_name": "docs"}
 
+        mock_storage = create_mock_storage_service("gs://bucket/test.pdf")
+
         app.dependency_overrides[verify_api_key] = auth_override
+        app.dependency_overrides[get_storage_service] = lambda: mock_storage
         try:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                with patch("app.api.v1.upload.gcs_storage") as mock_gcs:
-                    with patch("app.api.v1.upload.file_upload_duration_seconds") as mock_duration:
-                        mock_gcs.__aenter__ = AsyncMock(return_value=mock_gcs)
-                        mock_gcs.__aexit__ = AsyncMock(return_value=None)
-                        mock_gcs.upload_file = AsyncMock(return_value="gs://bucket/test.pdf")
+                with patch("app.api.v1.upload.file_upload_duration_seconds") as mock_duration:
+                    response = await client.post("/api/v1/upload", files=files, data=data)
 
-                        response = await client.post("/api/v1/upload", files=files, data=data)
-
-                        assert response.status_code == 200
-                        observed_duration = mock_duration.labels.return_value.observe.call_args[0][0]
-                        assert observed_duration > 0, f"Expected duration > 0, got {observed_duration}"
+                    assert response.status_code == 200
+                    observed_duration = mock_duration.labels.return_value.observe.call_args[0][0]
+                    assert observed_duration > 0, f"Expected duration > 0, got {observed_duration}"
         finally:
             app.dependency_overrides.clear()

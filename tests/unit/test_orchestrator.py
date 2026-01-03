@@ -149,8 +149,8 @@ async def test_ingest_accepts_file_path_and_collection(mock_orchestrator):
     """
     from langchain_core.documents import Document
 
-    # Configure mocks for ingest flow
-    mock_orchestrator.gcs_loader.load_file.return_value = [Document(page_content="test")]
+    # Configure mocks for ingest flow (cloud-agnostic storage_loader)
+    mock_orchestrator.storage_loader.load_file.return_value = [Document(page_content="test")]
     mock_orchestrator.semantic_chunker.chunk_documents.return_value = []
     mock_orchestrator.embedding_service.embed_batch.return_value = []
 
@@ -169,8 +169,8 @@ async def test_ingest_creates_job_and_returns_job_id(mock_orchestrator):
     """
     from langchain_core.documents import Document
 
-    # Configure mocks for ingest flow
-    mock_orchestrator.gcs_loader.load_file.return_value = [Document(page_content="test")]
+    # Configure mocks for ingest flow (cloud-agnostic storage_loader)
+    mock_orchestrator.storage_loader.load_file.return_value = [Document(page_content="test")]
     mock_orchestrator.semantic_chunker.chunk_documents.return_value = []
     mock_orchestrator.embedding_service.embed_batch.return_value = []
 
@@ -199,8 +199,8 @@ async def test_ingest_accepts_existing_job_id(mock_orchestrator):
     existing_job_id = "test-job-existing-123"
     mock_orchestrator.job_state_manager.create_job.return_value = existing_job_id
 
-    # Configure mocks for ingest flow
-    mock_orchestrator.gcs_loader.load_file.return_value = [Document(page_content="test")]
+    # Configure mocks for ingest flow (cloud-agnostic storage_loader)
+    mock_orchestrator.storage_loader.load_file.return_value = [Document(page_content="test")]
     mock_orchestrator.semantic_chunker.chunk_documents.return_value = []
     mock_orchestrator.embedding_service.embed_batch.return_value = []
 
@@ -225,8 +225,8 @@ async def test_ingest_updates_job_to_processing(mock_orchestrator):
     from langchain_core.documents import Document
     from unittest.mock import Mock
 
-    # Configure mocks for ingest flow
-    mock_orchestrator.gcs_loader.load_file.return_value = [Document(page_content="test")]
+    # Configure mocks for ingest flow (cloud-agnostic storage_loader)
+    mock_orchestrator.storage_loader.load_file.return_value = [Document(page_content="test")]
     mock_orchestrator.semantic_chunker.chunk_documents.return_value = []
     mock_orchestrator.embedding_service.embed_batch.return_value = []
 
@@ -247,20 +247,21 @@ async def test_ingest_updates_job_to_processing(mock_orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_ingest_loads_document_from_gcs(mock_orchestrator):
-    """Test that ingest() loads document from GCS.
+async def test_ingest_loads_document_from_storage(mock_orchestrator):
+    """Test that ingest() loads document from cloud storage.
 
-    Expected: GCSLoaderService.load_file() is called with correct blob path.
+    Expected: Storage loader load_file() is called with correct object path.
+    Works with both GCS (gs://) and S3 (s3://) URIs.
     """
     from langchain_core.documents import Document
     from unittest.mock import AsyncMock
 
-    # Configure GCS loader mock with bucket attribute
+    # Configure storage loader mock
     mock_load_file = AsyncMock(return_value=[
         Document(page_content="Test content", metadata={"source": "test.pdf"})
     ])
-    mock_orchestrator.gcs_loader.load_file = mock_load_file
-    mock_orchestrator.gcs_loader.bucket = "test-bucket"  # Set bucket for path extraction
+    mock_orchestrator.storage_loader.load_file = mock_load_file
+    mock_orchestrator.storage_loader.bucket = "test-bucket"
 
     # Configure other mocks
     mock_orchestrator.semantic_chunker.chunk_documents.return_value = []
@@ -271,7 +272,7 @@ async def test_ingest_loads_document_from_gcs(mock_orchestrator):
         collection_name="test_collection"
     )
 
-    # Verify GCS loader was called with correct blob path
+    # Verify storage loader was called with correct object path
     mock_load_file.assert_called_once_with("folder/test.pdf")
 
 
@@ -294,7 +295,8 @@ async def test_ingest_completes_full_pipeline_and_marks_completed(mock_orchestra
     ]
     mock_embeddings = [[0.1, 0.2], [0.3, 0.4]]
 
-    mock_orchestrator.gcs_loader.load_file.return_value = mock_documents
+    # Configure mocks (cloud-agnostic storage_loader)
+    mock_orchestrator.storage_loader.load_file.return_value = mock_documents
     mock_orchestrator.semantic_chunker.chunk_documents.return_value = mock_chunks
     mock_orchestrator.embedding_service.embed_batch.return_value = mock_embeddings
 

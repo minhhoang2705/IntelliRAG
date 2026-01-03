@@ -40,3 +40,18 @@ class InvalidFileError(ValidationError):
 class StorageError(IntelliRAGError):
     """Storage service error (MinIO/S3)."""
     pass
+
+
+class LoaderError(IntelliRAGError):
+    """Document loader service error."""
+    pass
+
+
+class S3LoaderError(LoaderError):
+    """S3 document loading failed."""
+    pass
+
+
+class GCSLoaderError(LoaderError):
+    """GCS document loading failed."""
+    pass

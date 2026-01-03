@@ -38,7 +38,7 @@ def test_ingest_returns_job_id(mocker, auth_override):
 
     # Initialize and mock orchestrator
     main_module.orchestrator = OrchestratorService()
-    mocker.patch.object(main_module.orchestrator.gcs_loader, 'load_file', AsyncMock(return_value=[Document(page_content="test")]))
+    mocker.patch.object(main_module.orchestrator.storage_loader, 'load_file', AsyncMock(return_value=[Document(page_content="test")]))
     mocker.patch.object(main_module.orchestrator.semantic_chunker, 'chunk_documents', AsyncMock(return_value=[]))
     mocker.patch.object(main_module.orchestrator.embedding_service, 'embed_batch', return_value=[])
     mocker.patch.object(main_module.orchestrator.vectordb_service, 'upsert_vectors', AsyncMock())

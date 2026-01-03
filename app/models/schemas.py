@@ -34,7 +34,7 @@ class QueryRequest(BaseModel):
 
 class IngestRequest(BaseModel):
     """Request model for document ingestion."""
-    file_path: str = Field(..., description="GCS path to document")
+    file_path: str = Field(..., description="Cloud storage path to document (gs:// or s3://)")
     collection_name: str = Field(..., description="Target collection")
 
 class SourceDocument(BaseModel):
@@ -93,14 +93,14 @@ class DocumentMetadata(BaseModel):
                                        description="UTC timestamp of upload")
 
 
-class GCSStorageInfo(BaseModel):
-    """GCS storage information for document location."""
+class StorageInfo(BaseModel):
+    """Cloud storage information for document location (supports GCS and S3)."""
 
-    gcs_uri: str = Field(..., pattern=r"^gs://",
-                         description="GCS URI (must start with gs://)")
-    gcs_bucket: str = Field(..., min_length=1, description="GCS bucket name")
-    gcs_object_path: str = Field(..., min_length=1,
-                                 description="Object path within bucket")
+    storage_uri: str = Field(..., pattern=r"^(gs|s3)://",
+                            description="Storage URI (gs:// for GCS, s3:// for S3)")
+    bucket: str = Field(..., min_length=1, description="Storage bucket name")
+    object_path: str = Field(..., min_length=1,
+                            description="Object path within bucket")
 
 
 class ChunkMetadata(BaseModel):
@@ -144,7 +144,7 @@ class QdrantPayload(BaseModel):
     """
 
     document: DocumentMetadata = Field(..., description="Document metadata")
-    storage: GCSStorageInfo = Field(..., description="GCS storage information")
+    storage: StorageInfo = Field(..., description="Cloud storage information")
     chunk: ChunkMetadata = Field(..., description="Chunk metadata")
     processing: ProcessingMetadata = Field(...,
                                            description="Processing metadata")
@@ -158,7 +158,7 @@ class UploadResponse(BaseModel):
     """Response model for file upload endpoint."""
     file_id: str = Field(..., description="Unique file identifier (UUID)")
     filename: str = Field(..., description="Original filename")
-    gcs_path: str = Field(..., description="GCS storage path (gs://...)")
+    storage_path: str = Field(..., description="Cloud storage path (gs:// or s3://)")
     file_size: int = Field(..., ge=0, description="File size in bytes")
     mime_type: str = Field(..., description="MIME type (e.g., application/pdf)")
     uploaded_at: str = Field(..., description="Upload timestamp (ISO format)")
@@ -170,7 +170,7 @@ class IngestResponse(BaseModel):
     job_id: str = Field(..., description="Job identifier for tracking")
     status: str = Field(..., description="Initial job status (pending/processing)")
     message: str = Field(..., description="Human-readable status message")
-    file_path: str = Field(..., description="GCS path being processed")
+    file_path: str = Field(..., description="Cloud storage path being processed (gs:// or s3://)")
     collection_name: str = Field(..., description="Target collection")
 
 
@@ -181,7 +181,7 @@ class IngestStatusResponse(BaseModel):
     status: str = Field(..., description="Current job status")
     progress: int = Field(..., ge=0, le=100, description="Progress percentage (0-100)")
     message: str = Field(..., description="Status message")
-    file_path: str = Field(..., description="GCS path being processed")
+    file_path: str = Field(..., description="Cloud storage path being processed (gs:// or s3://)")
     collection_name: str = Field(..., description="Target collection")
     chunks_created: int = Field(default=0, ge=0, description="Number of chunks created")
     error: Optional[str] = Field(default=None, description="Error message if failed")

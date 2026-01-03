@@ -1,9 +1,13 @@
 """Application configuration management.
 """
 
-from typing import List
+from typing import List, Literal
 from pydantic import ConfigDict, Field, computed_field
 from pydantic_settings import BaseSettings
+
+
+# Type alias for supported storage providers
+StorageProviderType = Literal["gcs", "s3"]
 
 
 class Settings(BaseSettings):
@@ -25,6 +29,12 @@ class Settings(BaseSettings):
     debug: bool = False
     environment: str = "development"
 
+    # Storage Provider Configuration
+    storage_provider: StorageProviderType = Field(
+        default="gcs",
+        description="Storage provider: 'gcs' or 's3'"
+    )
+
     # Google Cloud Storage (GCS) Configuration
     gcs_project_id: str = "intellirag-project"
     gcs_bucket_name: str = "intellirag-raw-documents"
@@ -40,6 +50,28 @@ class Settings(BaseSettings):
         default=300, description="Download timeout in seconds")
     gcs_max_retries: int = Field(
         default=3, description="Maximum retry attempts for GCS operations")
+
+    # AWS S3 Configuration
+    s3_bucket_name: str = Field(
+        default="intellirag-raw-documents",
+        description="S3 bucket name for document storage"
+    )
+    s3_region: str = Field(
+        default="us-east-1",
+        description="AWS region for S3 bucket"
+    )
+    s3_endpoint_url: str = Field(
+        default="",
+        description="Optional S3 endpoint URL (for LocalStack testing)"
+    )
+
+    # S3 Storage Settings
+    s3_upload_timeout: int = Field(
+        default=300, description="Upload timeout in seconds")
+    s3_download_timeout: int = Field(
+        default=300, description="Download timeout in seconds")
+    s3_max_retries: int = Field(
+        default=3, description="Maximum retry attempts for S3 operations")
 
     # PostgreSQL Configuration (REMOVED - Replaced by Qdrant Payloads)
     # All metadata now stored in Qdrant payloads. See app/models/schemas.py

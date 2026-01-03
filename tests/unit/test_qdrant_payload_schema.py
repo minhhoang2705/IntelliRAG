@@ -6,7 +6,7 @@ for a separate PostgreSQL database.
 
 Test Coverage:
 - DocumentMetadata validation
-- GCSStorageInfo validation
+- StorageInfo validation (cloud-agnostic: GCS and S3)
 - ChunkMetadata validation
 - ProcessingMetadata validation
 - QdrantPayload comprehensive validation
@@ -17,7 +17,7 @@ Methodology: Test-Driven Development (TDD)
 Target Coverage: >90%
 
 
-Date: 2025-01-23
+Date: 2025-12-30
 """
 
 import pytest
@@ -59,35 +59,49 @@ class TestDocumentMetadataSchema:
         assert "file_size" in str(exc_info.value).lower()
 
 
-class TestGCSStorageInfoSchema:
-    """Test suite for GCSStorageInfo schema."""
+class TestStorageInfoSchema:
+    """Test suite for StorageInfo schema (cloud-agnostic)."""
 
-    def test_gcs_storage_info_valid_creation(self):
-        """Test GCSStorageInfo can be created with valid data."""
-        from app.models.schemas import GCSStorageInfo
+    def test_storage_info_valid_creation_gcs(self):
+        """Test StorageInfo can be created with valid GCS data."""
+        from app.models.schemas import StorageInfo
 
-        gcs_info = GCSStorageInfo(
-            gcs_uri="gs://bucket-name/path/to/file.pdf",
-            gcs_bucket="bucket-name",
-            gcs_object_path="path/to/file.pdf"
+        storage_info = StorageInfo(
+            storage_uri="gs://bucket-name/path/to/file.pdf",
+            bucket="bucket-name",
+            object_path="path/to/file.pdf"
         )
 
-        assert gcs_info.gcs_uri == "gs://bucket-name/path/to/file.pdf"
-        assert gcs_info.gcs_bucket == "bucket-name"
-        assert gcs_info.gcs_object_path == "path/to/file.pdf"
+        assert storage_info.storage_uri == "gs://bucket-name/path/to/file.pdf"
+        assert storage_info.bucket == "bucket-name"
+        assert storage_info.object_path == "path/to/file.pdf"
 
-    def test_gcs_storage_info_uri_must_start_with_gs(self):
-        """Test GCSStorageInfo URI must start with 'gs://'."""
-        from app.models.schemas import GCSStorageInfo
+    def test_storage_info_valid_creation_s3(self):
+        """Test StorageInfo can be created with valid S3 data."""
+        from app.models.schemas import StorageInfo
+
+        storage_info = StorageInfo(
+            storage_uri="s3://bucket-name/path/to/file.pdf",
+            bucket="bucket-name",
+            object_path="path/to/file.pdf"
+        )
+
+        assert storage_info.storage_uri == "s3://bucket-name/path/to/file.pdf"
+        assert storage_info.bucket == "bucket-name"
+        assert storage_info.object_path == "path/to/file.pdf"
+
+    def test_storage_info_uri_must_start_with_gs_or_s3(self):
+        """Test StorageInfo URI must start with 'gs://' or 's3://'."""
+        from app.models.schemas import StorageInfo
 
         with pytest.raises(ValidationError) as exc_info:
-            GCSStorageInfo(
-                gcs_uri="http://bucket-name/file.pdf",
-                gcs_bucket="bucket-name",
-                gcs_object_path="file.pdf"
+            StorageInfo(
+                storage_uri="http://bucket-name/file.pdf",
+                bucket="bucket-name",
+                object_path="file.pdf"
             )
 
-        assert "gcs_uri" in str(exc_info.value).lower()
+        assert "storage_uri" in str(exc_info.value).lower()
 
 
 class TestChunkMetadataSchema:
@@ -182,7 +196,7 @@ class TestQdrantPayloadSchema:
     def test_qdrant_payload_valid_creation(self):
         """Test QdrantPayload can be created with all components."""
         from app.models.schemas import (
-            QdrantPayload, DocumentMetadata, GCSStorageInfo,
+            QdrantPayload, DocumentMetadata, StorageInfo,
             ChunkMetadata, ProcessingMetadata
         )
 
@@ -193,10 +207,10 @@ class TestQdrantPayloadSchema:
                 file_size=2048,
                 upload_timestamp=datetime.now(UTC)
             ),
-            storage=GCSStorageInfo(
-                gcs_uri="gs://bucket/test.pdf",
-                gcs_bucket="bucket",
-                gcs_object_path="test.pdf"
+            storage=StorageInfo(
+                storage_uri="gs://bucket/test.pdf",
+                bucket="bucket",
+                object_path="test.pdf"
             ),
             chunk=ChunkMetadata(
                 chunk_index=0,
@@ -216,7 +230,7 @@ class TestQdrantPayloadSchema:
         )
 
         assert payload.document.filename == "test.pdf"
-        assert payload.storage.gcs_bucket == "bucket"
+        assert payload.storage.bucket == "bucket"
         assert payload.chunk.chunk_index == 0
         assert payload.processing.embedding_dimension == 1024
         assert payload.collection_id == "default"
@@ -225,7 +239,7 @@ class TestQdrantPayloadSchema:
     def test_qdrant_payload_to_dict(self):
         """Test QdrantPayload can be converted to dict for Qdrant storage."""
         from app.models.schemas import (
-            QdrantPayload, DocumentMetadata, GCSStorageInfo,
+            QdrantPayload, DocumentMetadata, StorageInfo,
             ChunkMetadata, ProcessingMetadata
         )
 
@@ -236,10 +250,10 @@ class TestQdrantPayloadSchema:
                 file_size=2048,
                 upload_timestamp=datetime.now(UTC)
             ),
-            storage=GCSStorageInfo(
-                gcs_uri="gs://bucket/test.pdf",
-                gcs_bucket="bucket",
-                gcs_object_path="test.pdf"
+            storage=StorageInfo(
+                storage_uri="gs://bucket/test.pdf",
+                bucket="bucket",
+                object_path="test.pdf"
             ),
             chunk=ChunkMetadata(
                 chunk_index=0,
@@ -269,7 +283,7 @@ class TestQdrantPayloadSchema:
     def test_qdrant_payload_tags_defaults_to_empty_list(self):
         """Test QdrantPayload tags field defaults to empty list."""
         from app.models.schemas import (
-            QdrantPayload, DocumentMetadata, GCSStorageInfo,
+            QdrantPayload, DocumentMetadata, StorageInfo,
             ChunkMetadata, ProcessingMetadata
         )
 
@@ -280,10 +294,10 @@ class TestQdrantPayloadSchema:
                 file_size=2048,
                 upload_timestamp=datetime.now(UTC)
             ),
-            storage=GCSStorageInfo(
-                gcs_uri="gs://bucket/test.pdf",
-                gcs_bucket="bucket",
-                gcs_object_path="test.pdf"
+            storage=StorageInfo(
+                storage_uri="gs://bucket/test.pdf",
+                bucket="bucket",
+                object_path="test.pdf"
             ),
             chunk=ChunkMetadata(
                 chunk_index=0,
