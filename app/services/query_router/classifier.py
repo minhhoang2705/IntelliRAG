@@ -6,9 +6,11 @@ import logging
 import re
 import time
 from enum import Enum
+from typing import Optional
 from pydantic import BaseModel, Field
 from opentelemetry import trace
-from app.services.query_router.prompts import build_classification_prompt
+from app.services.query_router.prompts import FEW_SHOT_EXAMPLES
+from app.services.query_router.template_loader import TemplateLoader
 from app.api.middleware.metrics import (
     query_classification_total,
     query_classification_confidence,
@@ -38,15 +40,25 @@ class QueryClassification(BaseModel):
 class QueryClassifier:
     """Service for classifying queries."""
 
-    def __init__(self, llm_client):
+    def __init__(
+        self,
+        llm_client,
+        template_loader: Optional[TemplateLoader] = None
+    ):
         self.llm_client = llm_client
+        self.template_loader = template_loader or TemplateLoader()
         logger.info("Initialized QueryClassifier")
 
-    async def classify(self, query: str) -> QueryClassification:
+    async def classify(
+        self,
+        query: str,
+        language: Optional[str] = None
+    ) -> QueryClassification:
         """Classify a query.
 
         Args:
             query: User query string
+            language: Optional language override ("en" or "vi")
 
         Returns:
             QueryClassification with type, confidence, and reasoning
@@ -58,8 +70,13 @@ class QueryClassifier:
             # Start timing for metrics
             start_time = time.time()
 
-            # Build prompt with few-shot examples
-            prompt = build_classification_prompt(query)
+            # Build prompt with few-shot examples using template
+            prompt = self.template_loader.render(
+                template_name="classification.j2",
+                language=language,
+                query=query,
+                examples=FEW_SHOT_EXAMPLES
+            )
 
             # Call LLM to classify
             response = await self.llm_client.generate(

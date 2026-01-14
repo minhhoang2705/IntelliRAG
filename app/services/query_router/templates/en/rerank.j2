@@ -1,0 +1,9 @@
+Rerank the following documents based on relevance to the query.
+
+Query: {{ query }}
+
+Documents:
+{{ context | format_context }}
+
+Return the document IDs in order of relevance (most relevant first).
+Format: [1, 3, 2, ...]

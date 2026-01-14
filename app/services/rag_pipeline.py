@@ -7,10 +7,11 @@ retrieval, and generation to answer user queries.
 
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.services.embedding import EmbeddingService
 from app.services.vectordb import VectorDBService
 from app.services.llm_client import LLMClientService
+from app.services.query_router.template_loader import TemplateLoader
 import logging
 from opentelemetry import trace
 
@@ -24,7 +25,8 @@ class RAGPipelineService:
         self,
         embedding_service: EmbeddingService,
         vectordb_service: VectorDBService,
-        llm_client: LLMClientService
+        llm_client: LLMClientService,
+        template_loader: Optional[TemplateLoader] = None
     ):
         """Initialize RAG pipeline with required services.
 
@@ -32,10 +34,12 @@ class RAGPipelineService:
             embedding_service: Service for generating embeddings
             vectordb_service: Service for vector storage and retrieval
             llm_client: Service for LLM text generation
+            template_loader: Optional TemplateLoader for multilingual prompts
         """
         self.embedding_service = embedding_service
         self.vectordb_service = vectordb_service
         self.llm_client = llm_client
+        self.template_loader = template_loader or TemplateLoader()
         logger.info("Initialized RAGPipelineService")
 
     async def query_with_rag(
@@ -44,7 +48,8 @@ class RAGPipelineService:
         collection_name: str,
         top_k: int = 5,
         temperature: float = 0.7,
-        max_tokens: int = 512
+        max_tokens: int = 512,
+        language: Optional[str] = None
     ) -> Dict[str, Any]:
         """Execute RAG query flow: embed → retrieve → generate.
 
@@ -54,6 +59,7 @@ class RAGPipelineService:
             top_k: Number of documents to retrieve
             temperature: LLM sampling temperature
             max_tokens: Maximum tokens to generate
+            language: Optional language override ("en" or "vi")
 
         Returns:
             Dictionary with 'answer' and 'sources' keys
@@ -77,27 +83,32 @@ class RAGPipelineService:
             )
 
             # Step 3: Format context from retrieved documents
-            context_parts = []
+            context_texts = []
             sources = []
-            for i, result in enumerate(search_results, 1):
-                context_parts.append(f"[{i}] {result.payload['text']}")
+            for result in search_results:
+                context_texts.append(result.payload['text'])
                 sources.append({
                     "text": result.payload['text'],
                     "score": float(result.score),
                     "id": str(result.id)
                 })
 
-            context = "\n\n".join(context_parts)
+            # Step 4: Create system and user prompts using templates
+            system_prompt = self.template_loader.render(
+                template_name="rag_system.j2",
+                language=language,
+                query=query,
+                context=context_texts
+            )
 
-            # Step 4: Create prompt with context
-            prompt = f"""Answer the question based on the provided context.
+            user_prompt = self.template_loader.render(
+                template_name="rag_user.j2",
+                language=language,
+                query=query
+            )
 
-Context:
-{context}
-
-Question: {query}
-
-Answer:"""
+            # Combine system and user prompts
+            prompt = f"{system_prompt}\n\n{user_prompt}"
 
             # Step 5: Generate answer using LLM
             answer = await self.llm_client.generate(
