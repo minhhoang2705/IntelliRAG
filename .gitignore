@@ -29,7 +29,7 @@ intellirag
 *.pth
 *.tgz
 *.tar.gz
-
+data/
 # Qdrant database storage
 qdrant_storage/
 # Claude Code temporary files
